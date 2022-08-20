@@ -1,3 +1,4 @@
+use getopts::Options;
 use skim::prelude::*;
 use std::env;
 use std::process::Command;
@@ -6,36 +7,102 @@ struct Settings {
     method: String,
     base_url: String,
     query: String,
+    file: String,
+    debug: bool,
     query_fields: String,
+    download_with: String,
+}
+
+fn print_usage(program: &str, opts: Options) -> ! {
+    let brief = format!(
+        "Usage: {} [options] checkout|co|cherry-pick|cp [query]",
+        program
+    );
+    print!("{}", opts.usage(&brief));
+    std::process::exit(1);
 }
 
 impl Settings {
     fn new(args: Vec<String>) -> Self {
-        let method = match args[1].as_str() {
+        let mut opts = Options::new();
+        opts.optopt(
+            "f",
+            "file",
+            "Read json data from file instead of Gerrit",
+            "FILE",
+        );
+        opts.optopt("p", "project", "The project to search in", "NAME");
+        opts.optopt("u", "url", "The url to Gerrit", "URL");
+        opts.optflag("", "debug", "Print debug information while running");
+        opts.optflag("h", "help", "Print this menu");
+        opts.optflag("c", "closed", "include closed commits");
+        opts.optflag("", "ssh", "Download over ssh");
+        opts.optflag("", "https", "Download over https");
+        opts.optflag("", "anon", "Download over anonymous https");
+
+        let matches = opts.parse(&args[1..]).expect("Failed to parse args");
+
+        if matches.opt_present("help") {
+            print_usage(&args[0], opts);
+        }
+
+        let method = match matches.free[0].as_str() {
             "checkout" | "co" => "Checkout".to_string(),
             "cherry-pick" | "cp" => "Cherry pick".to_string(),
-            _ => {
-                println!("Unsupported operation");
-                std::process::exit(1);
+            op => {
+                println!("Unsupported operation '{}'", op);
+                print_usage(&args[0], opts);
             }
         };
-        let mut query = if args.len() == 2 {
-            "status:open".to_string()
+
+        let debug = matches.opt_present("debug");
+
+        let file = matches.opt_str("file").unwrap_or_else(|| "".to_string());
+
+        let download_with = if matches.opt_present("ssh") {
+            "ssh".to_string()
+        } else if matches.opt_present("https") {
+            "https".to_string()
+        } else if matches.opt_present("anon") {
+            "anonymous http".to_string()
         } else {
-            args.join(" ")
+            "ssh".to_string()
         };
-        let repo = "".to_string();
-        if !repo.is_empty() {
-            query += &(" project:".to_string() + &repo);
+
+        let query = Self::create_query(
+            matches.opt_present("closed"),
+            matches.opt_str("project"),
+            &matches.free[1..].join(" "),
+        );
+        if debug {
+            println!("Query: '{}'", query);
         }
+        let base_url = matches.opt_str("url").unwrap_or_else(|| std::env::var("GERRIT_URL").expect("Must set environment var GERRIT_URL or pass --url flag"));
+
         Self {
             method,
-            base_url: std::env::var("GERRIT_URL").expect("Must set environment var GERRIT_URL"),
+            base_url,
+            debug,
+            file,
             query,
             query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES&o=DOWNLOAD_COMMANDS"
                 .to_string(),
+            download_with,
         }
     }
+
+    fn create_query(include_closed: bool, project: Option<String>, query: &str) -> String {
+        let mut q = "".to_string();
+        if !include_closed {
+            q += "status:open ";
+        }
+        if let Some(p) = project {
+            q += format!("project:{} ", p).as_str();
+        }
+        q += query;
+        q
+    }
+
     fn get_url(&self) -> String {
         let mut url: String = self.base_url.to_string();
 
@@ -46,6 +113,9 @@ impl Settings {
         url += &self.query.replace(' ', "+");
         url += "&";
         url += &self.query_fields;
+        if self.debug {
+            println!("Url: {}", url);
+        }
         url
     }
 }
@@ -80,31 +150,28 @@ impl SkimItem for CommitInfo {
     }
 }
 
-fn help() {
-    println!("grt <checkout|co|cherry-pick|cp> [search]");
-    std::process::exit(1);
-}
-
-fn get_data(url: &str) -> String {
+fn get_data(s: &Settings) -> String {
     // Need to remove the first line as it contains the magic string )]}' to prevent
     // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
-    reqwest::blocking::get(url)
-        .unwrap()
-        .text()
-        .unwrap()
-        .split('\n')
-        .nth(1)
-        .expect("Failed to get commit data")
-        .to_string()
+    if s.file.is_empty() {
+        reqwest::blocking::get(s.get_url())
+            .unwrap()
+            .text()
+            .unwrap()
+            .split('\n')
+            .nth(1)
+            .expect("Failed to get commit data")
+            .to_string()
+    } else {
+        std::fs::read_to_string(&s.file).expect("Should have been able to read the file")
+    }
 }
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    if args.len() < 2 {
-        help();
-    }
+
     let s = Settings::new(args);
-    let data = get_data(&s.get_url());
+    let data = get_data(&s);
     let json_data = json::parse(&data).unwrap();
 
     let mut commits: Vec<CommitInfo> = Vec::new();
@@ -116,10 +183,10 @@ fn main() {
         let body = item["revisions"][current_revision]["commit"]["message"]
             .as_str()
             .expect("Failed to find commit message");
-        let download = item["revisions"][current_revision]["fetch"]["anonymous http"]["commands"]
+        let download = item["revisions"][current_revision]["fetch"][&s.download_with]["commands"]
             [&s.method]
             .as_str()
-            .expect("Failed to find download link");
+            .expect(&("Failed to find download link for ".to_string() + &s.download_with));
         commits.push(CommitInfo::new(
             title.to_string(),
             body.to_string(),
