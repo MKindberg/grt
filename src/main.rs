@@ -51,48 +51,7 @@ fn get_data(s: &Settings) -> String {
     }
 }
 
-fn main() {
-    let s = Settings::parse_args();
-    let data = get_data(&s);
-    let json_data = json::parse(&data).unwrap();
-
-    let mut commits: Vec<CommitInfo> = Vec::new();
-    for item in json_data.members() {
-        let current_revision = item["current_revision"].as_str().unwrap();
-        let title = item["subject"]
-            .as_str()
-            .expect("Failed to find commit subject");
-        let body = item["revisions"][current_revision]["commit"]["message"]
-            .as_str()
-            .expect("Failed to find commit message");
-        let download = item["revisions"][current_revision]["fetch"][&s.fetch_method]["commands"]
-            [&s.method]
-            .as_str()
-            .expect(&("Failed to find download link for ".to_string() + &s.fetch_method));
-        commits.push(CommitInfo::new(
-            title.to_string(),
-            body.to_string(),
-            download.to_string(),
-        ));
-    }
-
-    let options = SkimOptionsBuilder::default()
-        .height(Some("50%"))
-        .multi(false)
-        .preview(Some("")) // preview should be specified to enable preview window
-        .build()
-        .unwrap();
-
-    let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    for commit in commits {
-        let _ = tx_item.send(Arc::new(commit));
-    }
-    drop(tx_item); // so that skim could know when to stop waiting for more items.
-
-    let selected_item = &Skim::run_with(&options, Some(rx_item))
-        .unwrap()
-        .selected_items[0];
-
+fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
     println!(
         "Would you like to {} the commit '{}' now? (y/N) ",
         s.method.to_lowercase(),
@@ -113,4 +72,54 @@ fn main() {
     } else {
         println!("Run '{}' to do it later", selected_item.output());
     }
+}
+
+fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
+    let mut commits: Vec<CommitInfo> = Vec::new();
+
+    for item in json_data.members() {
+        let current_revision = item["current_revision"].as_str().unwrap();
+        let title = item["subject"]
+            .as_str()
+            .expect("Failed to find commit subject");
+        let body = item["revisions"][current_revision]["commit"]["message"]
+            .as_str()
+            .expect("Failed to find commit message");
+        let download = item["revisions"][current_revision]["fetch"][&s.fetch_method]["commands"]
+            [&s.method]
+            .as_str()
+            .expect(&("Failed to find download link for ".to_string() + &s.fetch_method));
+        commits.push(CommitInfo::new(
+            title.to_string(),
+            body.to_string(),
+            download.to_string(),
+        ));
+    }
+    commits
+}
+
+fn main() {
+    let s = Settings::parse_args();
+    let data = get_data(&s);
+    let json_data = json::parse(&data).unwrap();
+
+    let commits = parse_data(&s, json_data);
+
+    let options = SkimOptionsBuilder::default()
+        .height(Some("50%"))
+        .multi(false)
+        .preview(Some("")) // preview should be specified to enable preview window
+        .build()
+        .unwrap();
+
+    let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
+    for commit in commits {
+        let _ = tx_item.send(Arc::new(commit));
+    }
+    drop(tx_item); // so that skim could know when to stop waiting for more items.
+
+    let selected_item = &Skim::run_with(&options, Some(rx_item))
+        .unwrap()
+        .selected_items[0];
+    execute_command(&s, selected_item)
 }
