@@ -77,7 +77,10 @@ impl Settings {
         if debug {
             println!("Query: '{}'", query);
         }
-        let base_url = matches.opt_str("url").unwrap_or_else(|| std::env::var("GERRIT_URL").expect("Must set environment var GERRIT_URL or pass --url flag"));
+        let base_url = matches.opt_str("url").unwrap_or_else(|| {
+            std::env::var("GERRIT_URL")
+                .expect("Must set environment var GERRIT_URL or pass --url flag")
+        });
 
         Self {
             method,
@@ -211,10 +214,24 @@ fn main() {
         .unwrap()
         .selected_items[0];
 
-    let out = Command::new("sh")
-        .arg("-c")
-        .arg(format!("echo '{}'", selected_item.output()))
-        .output()
-        .expect("Failed to run");
-    dbg!(std::str::from_utf8(&out.stdout).unwrap());
+    println!(
+        "Would you like to {} the commit '{}' now? (y/N) ",
+        s.method.to_lowercase(),
+        selected_item.text()
+    );
+
+    let mut line = String::new();
+    std::io::stdin()
+        .read_line(&mut line)
+        .expect("Could not read user input");
+    if ["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
+        let out = Command::new("sh")
+            .arg("-c")
+            .arg(format!("'{}'", selected_item.output()))
+            .output()
+            .expect("Failed to run");
+        dbg!(std::str::from_utf8(&out.stdout).unwrap());
+    } else {
+        println!("Run '{}' to do it later", selected_item.output());
+    }
 }
