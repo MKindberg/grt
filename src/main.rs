@@ -2,7 +2,6 @@ mod settings;
 
 use settings::Settings;
 use skim::prelude::*;
-use std::env;
 use std::process::Command;
 
 #[derive(Debug)]
@@ -53,9 +52,7 @@ fn get_data(s: &Settings) -> String {
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let s = Settings::new(args);
+    let s = Settings::parse_args();
     let data = get_data(&s);
     let json_data = json::parse(&data).unwrap();
 
@@ -68,10 +65,10 @@ fn main() {
         let body = item["revisions"][current_revision]["commit"]["message"]
             .as_str()
             .expect("Failed to find commit message");
-        let download = item["revisions"][current_revision]["fetch"][&s.download_with]["commands"]
+        let download = item["revisions"][current_revision]["fetch"][&s.fetch_method]["commands"]
             [&s.method]
             .as_str()
-            .expect(&("Failed to find download link for ".to_string() + &s.download_with));
+            .expect(&("Failed to find download link for ".to_string() + &s.fetch_method));
         commits.push(CommitInfo::new(
             title.to_string(),
             body.to_string(),
