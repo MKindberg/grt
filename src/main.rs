@@ -99,7 +99,7 @@ fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
 }
 
 fn main() {
-    let s = Settings::parse_args();
+    let s = Settings::new();
     let data = get_data(&s);
     let json_data = json::parse(&data).unwrap();
 
