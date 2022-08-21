@@ -18,11 +18,20 @@ impl Settings {
     pub fn new() -> Self {
         let mut opts = Options::new();
         opts.optflag("h", "help", "Print this menu");
-        opts.optopt("u", "url", "The url to Gerrit", "URL");
+        opts.optopt(
+            "u",
+            "url",
+            "The url to Gerrit, can also be set with en env var GERRIT_URL",
+            "URL",
+        );
         opts.optopt("p", "project", "The project to search in", "NAME");
         opts.optflag("c", "closed", "Include closed commits");
-        opts.optflag("o", "open", "Don't include closed commits");
-        opts.optflag("", "ssh", "Download over ssh");
+        opts.optflag(
+            "o",
+            "open",
+            "Don't include closed commits (default, will override -c if set)",
+        );
+        opts.optflag("", "ssh", "Download over ssh (default)");
         opts.optflag("", "https", "Download over https");
         opts.optflag("", "anon", "Download over anonymous https");
         opts.optflag("", "debug", "Print debug information while running");
@@ -93,6 +102,9 @@ impl Settings {
             env::args().next().unwrap()
         );
         print!("{}", self.options.usage(&brief));
+        println!("\nThe options can be set either on command line or through");
+        println!("the env var GRT_ARGS, anything set on command line will");
+        println!("override what's set in the environment.");
         std::process::exit(1);
     }
 
