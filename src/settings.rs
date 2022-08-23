@@ -76,7 +76,7 @@ impl Settings {
                 s.print_usage();
             }
         };
-        let query = s.create_query(&matches_cmd.free[1..].join(" "));
+        s.create_query(&matches_cmd.free[1..].join(" "));
         if s.debug {
             println!(
                 "Env args: '{}'",
@@ -86,7 +86,7 @@ impl Settings {
                 "Cmd args: '{}'",
                 env::args().collect::<Vec<String>>().join(" ")
             );
-            println!("Query: '{}'", query);
+            println!("Query: '{}'", s.query);
         }
         if s.base_url.is_empty() && s.file.is_empty() {
             println!("Must provide a url through either $GERRIT_URL or the -u option");
@@ -145,16 +145,14 @@ impl Settings {
         }
     }
 
-    fn create_query(&self, query: &str) -> String {
-        let mut q = "".to_string();
+    fn create_query(&mut self, query: &str) {
         if self.only_open {
-            q += "status:open ";
+            self.query += "status:open ";
         }
         if !self.project.is_empty() {
-            q += format!("project:{} ", self.project).as_str();
+            self.query += format!("project:{} ", self.project).as_str();
         }
-        q += query;
-        q
+        self.query += query;
     }
 
     pub fn get_url(&self) -> String {
