@@ -38,14 +38,25 @@ fn get_data(s: &Settings) -> String {
     // Need to remove the first line as it contains the magic string )]}' to prevent
     // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
     if s.file.is_empty() {
-        reqwest::blocking::get(s.get_url())
-            .unwrap()
-            .text()
-            .unwrap()
-            .split('\n')
-            .nth(1)
-            .expect("Failed to get commit data")
-            .to_string()
+        let out = Command::new("curl")
+            .arg("--netrc")
+            .arg("--request")
+            .arg("GET")
+            .arg("--url")
+            .arg(s.get_url())
+            .arg("--header")
+            .arg("Content-Type: application/json")
+            .output()
+            .expect("Failed to fetch commit data");
+        std::str::from_utf8(&out.stdout).unwrap().split('\n').nth(1).unwrap().to_string()
+        // reqwest::blocking::get(s.get_url())
+        //     .unwrap()
+        //     .text()
+        //     .unwrap()
+        //     .split('\n')
+        //     .nth(1)
+        //     .expect("Failed to get commit data")
+        //     .to_string()
     } else {
         std::fs::read_to_string(&s.file).expect("Should have been able to read the file")
     }
@@ -101,6 +112,7 @@ fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
 fn main() {
     let s = Settings::new();
     let data = get_data(&s);
+
     let json_data = json::parse(&data).unwrap();
 
     let commits = parse_data(&s, json_data);
