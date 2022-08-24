@@ -1,5 +1,6 @@
 use getopts::Options;
 use std::env;
+use std::process::Command;
 
 pub struct Settings {
     pub method: String,
@@ -67,6 +68,8 @@ impl Settings {
             options: opts,
         };
         s.parse_args(&matches_env);
+        s.project = Self::get_project();
+        println!("{}", Self::get_project());
         s.parse_args(&matches_cmd);
         s.method = match matches_cmd.free[0].as_str() {
             "checkout" | "co" => "Checkout".to_string(),
@@ -94,6 +97,17 @@ impl Settings {
         }
 
         s
+    }
+
+    fn get_project() -> String {
+        let out = Command::new("git")
+            .arg("config")
+            .arg("--get")
+            .arg("remote.origin.projectname")
+            .output()
+            .expect("Failed to run");
+        let project = std::str::from_utf8(&out.stdout).unwrap().trim();
+        project.strip_suffix(".git").unwrap_or("").to_string()
     }
 
     fn print_usage(&self) -> ! {
