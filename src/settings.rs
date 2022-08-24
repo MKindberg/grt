@@ -22,10 +22,10 @@ impl Settings {
         opts.optopt(
             "u",
             "url",
-            "The url to Gerrit, can also be set with en env var GERRIT_URL",
+            "The url to Gerrit, can also be set with en env var GERRIT_URL (mandatory)",
             "URL",
         );
-        opts.optopt("p", "project", "The project to search in", "NAME");
+        opts.optopt("p", "project", "The project to search in (will check remote.origin.projectname by default)", "NAME");
         opts.optflag("c", "closed", "Include closed commits");
         opts.optflag(
             "o",
