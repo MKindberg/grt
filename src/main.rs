@@ -120,6 +120,8 @@ fn main() {
     let options = SkimOptionsBuilder::default()
         .height(Some("50%"))
         .multi(false)
+        .select1(true)
+        .exit0(true)
         .preview(Some("")) // preview should be specified to enable preview window
         .build()
         .unwrap();
@@ -130,8 +132,9 @@ fn main() {
     }
     drop(tx_item); // so that skim could know when to stop waiting for more items.
 
-    let selected_item = &Skim::run_with(&options, Some(rx_item))
-        .unwrap()
-        .selected_items[0];
-    execute_command(&s, selected_item)
+    let res = &Skim::run_with(&options, Some(rx_item)).unwrap();
+    if res.final_event == Event::EvActAbort {
+        std::process::exit(1);
+    }
+    execute_command(&s, &res.selected_items[0])
 }
