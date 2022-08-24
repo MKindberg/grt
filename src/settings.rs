@@ -67,15 +67,22 @@ impl Settings {
                 .to_string(),
             options: opts,
         };
+
         s.parse_args(&matches_env);
         s.project = Self::get_project();
-        println!("{}", Self::get_project());
         s.parse_args(&matches_cmd);
+
+        if matches_cmd.free.len() == 0 {
+            println!("Must add a command, valid options are 'checkout', 'co', 'cherry-pick', 'cp'");
+            println!();
+            s.print_usage();
+        }
         s.method = match matches_cmd.free[0].as_str() {
             "checkout" | "co" => "Checkout".to_string(),
             "cherry-pick" | "cp" => "Cherry pick".to_string(),
             op => {
                 println!("Unsupported operation '{}'", op);
+                println!();
                 s.print_usage();
             }
         };
