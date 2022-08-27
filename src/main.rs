@@ -76,10 +76,11 @@ fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
     if ["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
         let out = Command::new("sh")
             .arg("-c")
-            .arg(format!("'{}'", selected_item.output()))
+            .arg(format!("{}", selected_item.output()))
             .output()
             .expect("Failed to run");
-        dbg!(std::str::from_utf8(&out.stdout).unwrap());
+        println!("{}", std::str::from_utf8(&out.stderr).unwrap());
+        println!("{}", std::str::from_utf8(&out.stdout).unwrap());
     } else {
         println!("Run '{}' to do it later", selected_item.output());
     }
@@ -99,7 +100,7 @@ fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
         let download = item["revisions"][current_revision]["fetch"][&s.fetch_method]["commands"]
             [&s.method]
             .as_str()
-            .expect(&("Failed to find download link for ".to_string() + &s.fetch_method));
+            .expect(&format!("Failed to find download link for {} {} {}", &s.fetch_method, &current_revision, &s.method));
         commits.push(CommitInfo::new(
             title.to_string(),
             body.to_string(),

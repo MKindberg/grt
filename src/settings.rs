@@ -79,7 +79,7 @@ impl Settings {
         }
         s.method = match matches_cmd.free[0].as_str() {
             "checkout" | "co" => "Checkout".to_string(),
-            "cherry-pick" | "cp" => "Cherry pick".to_string(),
+            "cherry-pick" | "cp" => "Cherry Pick".to_string(),
             op => {
                 println!("Unsupported operation '{}'", op);
                 println!();
@@ -138,7 +138,7 @@ impl Settings {
             self.fetch_method = if matches.opt_present("ssh") {
                 "ssh".to_string()
             } else if matches.opt_present("https") {
-                "https".to_string()
+                "http".to_string()
             } else {
                 "anonymous http".to_string()
             };
