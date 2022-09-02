@@ -7,14 +7,16 @@ use std::process::Command;
 #[derive(Debug)]
 struct CommitInfo {
     title: String,
+    author: String,
     body: String,
     download: String,
 }
 
 impl CommitInfo {
-    fn new(title: String, body: String, download: String) -> Self {
+    fn new(title: String, author: String, body: String, download: String) -> Self {
         CommitInfo {
             title,
+            author,
             body,
             download,
         }
@@ -23,7 +25,7 @@ impl CommitInfo {
 
 impl SkimItem for CommitInfo {
     fn text(&self) -> Cow<str> {
-        Cow::Borrowed(&self.title)
+        Cow::Owned(format!("{} - {}", self.title, self.author))
     }
 
     fn preview(&self, _context: PreviewContext) -> ItemPreview {
@@ -94,6 +96,9 @@ fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
         let title = item["subject"]
             .as_str()
             .expect("Failed to find commit subject");
+        let author = item["revisions"][current_revision]["commit"]["author"]["name"]
+            .as_str()
+            .expect("Failed to find commit author");
         let body = item["revisions"][current_revision]["commit"]["message"]
             .as_str()
             .expect("Failed to find commit message");
@@ -103,6 +108,7 @@ fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
             .expect(&format!("Failed to find download link for {} {} {}", &s.fetch_method, &current_revision, &s.method));
         commits.push(CommitInfo::new(
             title.to_string(),
+            author.to_string(),
             body.to_string(),
             download.to_string(),
         ));
