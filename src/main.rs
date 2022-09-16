@@ -66,8 +66,8 @@ fn get_data(s: &Settings) -> String {
 
 fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
     println!(
-        "Would you like to {} the commit '{}' now? (y/N) ",
-        s.method.to_lowercase(),
+        "{} '{}' now? (y/N) ",
+        s.method,
         selected_item.text()
     );
 
