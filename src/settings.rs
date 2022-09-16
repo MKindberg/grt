@@ -25,16 +25,23 @@ impl Settings {
             "The url to Gerrit, can also be set with en env var GERRIT_URL (mandatory)",
             "URL",
         );
-        opts.optopt("p", "project", "The project to search in (will check remote.origin.projectname by default)", "NAME");
+        opts.optopt(
+            "p",
+            "project",
+            "The project to search in (will check remote.origin.projectname by default)",
+            "NAME",
+        );
         opts.optflag("c", "closed", "Include closed commits");
         opts.optflag(
             "o",
             "open",
             "Don't include closed commits (default, will override -c if set)",
         );
-        opts.optflag("", "ssh", "Download over ssh (default)");
-        opts.optflag("", "https", "Download over https");
-        opts.optflag("", "anon", "Download over anonymous https");
+        opts.optflag(
+            "d",
+            "download-method",
+            "Method to download the commit, ssh(default), http, anon (anonymous http)",
+        );
         opts.optflag("", "debug", "Print debug information while running");
         opts.optopt(
             "f",
@@ -134,14 +141,15 @@ impl Settings {
             self.print_usage();
         }
 
-        if matches.opts_present(&["ssh".to_string(), "hppts".to_string(), "anon".to_string()]) {
-            self.fetch_method = if matches.opt_present("ssh") {
-                "ssh".to_string()
-            } else if matches.opt_present("https") {
-                "http".to_string()
-            } else {
-                "anonymous http".to_string()
-            };
+        if matches.opt_present("download-method") {
+            self.fetch_method = matches.opt_str("download-method").unwrap();
+            match &self.fetch_method[..] {
+                "ssh" | "http" | "annon" => (),
+                x => {
+                    eprintln!("Invalid download method: {}", x);
+                    self.print_usage()
+                }
+            }
         }
 
         if !self.only_open && matches.opt_present("open") {
