@@ -12,7 +12,7 @@ Options:
 |Short|long|Description|
 | -- | -------| --------|
 | -h | --help |     Print help menu|
-| -u URL | --url URL  |     The url to Gerrit, can also be set with en env var GERRIT_URL (mandatory)|
+| -u URL | --url URL  |     The url to Gerrit, can also be set with en env var GERRIT_URL or guessed|
 | -p NAME | --project NAME|  The project to search in (will check remote.origin.projectname by default)|
 | -c | --closed     |   Include closed commits|
 | -o | --open       |   Don't include closed commits (default, will override -c if set)|

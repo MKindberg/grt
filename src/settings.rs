@@ -22,7 +22,7 @@ impl Settings {
         opts.optopt(
             "u",
             "url",
-            "The url to Gerrit, can also be set with en env var GERRIT_URL (mandatory)",
+            "The url to Gerrit, can also be set with the env var GERRIT_URL or guessed",
             "URL",
         );
         opts.optopt(
@@ -65,7 +65,7 @@ impl Settings {
             method: "".to_string(),
             file: "".to_string(),
             fetch_method: "ssh".to_string(),
-            base_url: env::var("GERRIT_URL").unwrap_or_default(),
+            base_url: env::var("GERRIT_URL").unwrap_or_else(|_| Self::guess_remote()),
             project: "".to_string(),
             query: "".to_string(),
             debug: false,
@@ -79,7 +79,7 @@ impl Settings {
         s.project = Self::get_project();
         s.parse_args(&matches_cmd);
 
-        if matches_cmd.free.len() == 0 {
+        if matches_cmd.free.is_empty() {
             println!("Must add a command, valid options are 'checkout', 'co', 'cherry-pick', 'cp'");
             println!();
             s.print_usage();
@@ -106,21 +106,39 @@ impl Settings {
             println!("Query: '{}'", s.query);
         }
         if s.base_url.is_empty() && s.file.is_empty() {
-            println!("Must provide a url through either $GERRIT_URL or the -u option");
+            println!("Couldn't guess Gerrit url, must provide a url through either $GERRIT_URL or the -u option");
             std::process::exit(1);
         }
 
         s
     }
 
-    fn get_project() -> String {
+    fn get_git_config(config: &str) -> String {
         let out = Command::new("git")
             .arg("config")
             .arg("--get")
-            .arg("remote.origin.projectname")
+            .arg(config)
             .output()
             .expect("Failed to run");
-        let project = std::str::from_utf8(&out.stdout).unwrap().trim();
+        std::str::from_utf8(&out.stdout).unwrap().trim().to_string()
+    }
+
+    fn guess_remote() -> String {
+        let remote = Self::get_git_config("remote.origin.url");
+        // Only support http for now
+        if !remote.starts_with("http") {
+            return "".to_string();
+        }
+        let parts: Vec<&str> = remote.split('/').collect();
+        // authenticated URLs end in /a/, but other letters seems to be possible as well.
+        if parts.len() > 3 && parts[3].len() == 1 {
+            return parts[..4].join("/");
+        }
+        parts[..3].join("/")
+    }
+
+    fn get_project() -> String {
+        let project = Self::get_git_config("remote.origin.projectname");
         project.strip_suffix(".git").unwrap_or("").to_string()
     }
 
