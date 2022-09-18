@@ -70,7 +70,7 @@ impl Settings {
         };
 
         s.parse_args(&matches_env);
-        s.project = Self::get_project();
+        s.project = Self::get_project(&s.base_url);
         s.parse_args(&matches_cmd);
 
         if matches_cmd.free.is_empty() {
@@ -131,9 +131,17 @@ impl Settings {
         parts[..3].join("/")
     }
 
-    fn get_project() -> String {
-        let project = Self::get_git_config("remote.origin.projectname");
-        project.strip_suffix(".git").unwrap_or("").to_string()
+    fn get_project(url: &str) -> String {
+        let mut project = Self::get_git_config("remote.origin.projectname");
+        project.trim_end_matches(".git").to_string();
+        if project.is_empty() {
+            project = Self::get_git_config("remote.origin.url")
+                .trim_end_matches(".git")
+                .trim_start_matches(url)
+                .trim_start_matches("/")
+                .to_string();
+        }
+        project
     }
 
     fn print_usage(&self) -> ! {
