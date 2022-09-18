@@ -73,8 +73,6 @@ impl SkimItem for CommitInfo {
 }
 
 fn get_data(s: &Settings) -> String {
-    // Need to remove the first line as it contains the magic string )]}' to prevent
-    // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
     if s.file.is_empty() {
         let url = s.get_url();
         if url.starts_with("http") {
@@ -88,12 +86,13 @@ fn get_data(s: &Settings) -> String {
                 .arg("Content-Type: application/json")
                 .output()
                 .expect("Failed to fetch http commit data");
+            // Need to remove the first line as it contains the magic string )]}' to prevent
+            // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
             std::str::from_utf8(&out.stdout)
                 .unwrap()
-                .lines()
-                .nth(1)
-                .unwrap()
-                .to_string()
+                .split('\n')
+                .skip(1)
+                .collect()
         // reqwest::blocking::get(s.get_url())
         //     .unwrap()
         //     .text()
@@ -159,13 +158,13 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    let _ = json::parse(&get_data(&s))
+    json::parse(&get_data(&s))
         .unwrap()
         .members()
         .cloned()
         .map(CommitInfo::from)
         .map(Arc::new)
-        .map(|x| tx_item.send(x));
+        .for_each(|x| {let _ = tx_item.send(x);});
     drop(tx_item); // so that skim could know when to stop waiting for more items.
 
     let res = &Skim::run_with(&options, Some(rx_item)).unwrap();
