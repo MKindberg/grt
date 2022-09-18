@@ -16,7 +16,6 @@ Options:
 | -p NAME | --project NAME|  The project to search in (will check remote.origin.projectname by default)|
 | -c | --closed     |   Include closed commits|
 | -o | --open       |   Don't include closed commits (default, will override -c if set)|
-| -d | --download-method   |  Method used to download the commit, valid options are 'ssh' (default), 'http' and 'anon' (anonymous http)  |
 |   | --debug      |   Print debug information while running|
 |-f FILE | --file FILE  |   Read json data from file instead of Gerrit|
 

@@ -5,7 +5,6 @@ use std::process::Command;
 pub struct Settings {
     pub method: String,
     pub file: String,
-    pub fetch_method: String,
     base_url: String,
     project: String,
     query: String,
@@ -37,11 +36,6 @@ impl Settings {
             "open",
             "Don't include closed commits (default, will override -c if set)",
         );
-        opts.optflag(
-            "d",
-            "download-method",
-            "Method to download the commit, ssh(default), http, anon (anonymous http)",
-        );
         opts.optflag("", "debug", "Print debug information while running");
         opts.optopt(
             "f",
@@ -64,13 +58,12 @@ impl Settings {
         let mut s = Self {
             method: "".to_string(),
             file: "".to_string(),
-            fetch_method: "ssh".to_string(),
             base_url: env::var("GERRIT_URL").unwrap_or_else(|_| Self::guess_remote()),
             project: "".to_string(),
             query: "".to_string(),
             debug: false,
             only_open: true,
-            query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES&o=DOWNLOAD_COMMANDS"
+            query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT"
                 .to_string(),
             options: opts,
         };
@@ -86,7 +79,7 @@ impl Settings {
         }
         s.method = match matches_cmd.free[0].as_str() {
             "checkout" | "co" => "Checkout".to_string(),
-            "cherry-pick" | "cp" => "Cherry Pick".to_string(),
+            "cherry-pick" | "cp" => "Cherry-Pick".to_string(),
             op => {
                 println!("Unsupported operation '{}'", op);
                 println!();
@@ -157,17 +150,6 @@ impl Settings {
     pub fn parse_args(&mut self, matches: &getopts::Matches) {
         if matches.opt_present("help") {
             self.print_usage();
-        }
-
-        if matches.opt_present("download-method") {
-            self.fetch_method = matches.opt_str("download-method").unwrap();
-            match &self.fetch_method[..] {
-                "ssh" | "http" | "annon" => (),
-                x => {
-                    eprintln!("Invalid download method: {}", x);
-                    self.print_usage()
-                }
-            }
         }
 
         if !self.only_open && matches.opt_present("open") {

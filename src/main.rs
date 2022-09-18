@@ -9,16 +9,16 @@ struct CommitInfo {
     title: String,
     author: String,
     body: String,
-    download: String,
+    reference: String,
 }
 
 impl CommitInfo {
-    fn new(title: String, author: String, body: String, download: String) -> Self {
+    fn new(title: String, author: String, body: String, reference: String) -> Self {
         CommitInfo {
             title,
             author,
             body,
-            download,
+            reference,
         }
     }
 }
@@ -32,7 +32,7 @@ impl SkimItem for CommitInfo {
         ItemPreview::Text(self.body.to_string())
     }
     fn output(&self) -> Cow<str> {
-        Cow::Borrowed(&self.download)
+        Cow::Borrowed(&self.reference)
     }
 }
 
@@ -72,23 +72,24 @@ fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
     );
 
     let mut line = String::new();
+    let command = format!("git fetch origin {}; git {} FETCH_HEAD", selected_item.output(), s.method.to_lowercase());
     std::io::stdin()
         .read_line(&mut line)
         .expect("Could not read user input");
     if ["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
         let out = Command::new("sh")
             .arg("-c")
-            .arg(format!("{}", selected_item.output()))
+            .arg(command)
             .output()
             .expect("Failed to run");
         println!("{}", std::str::from_utf8(&out.stderr).unwrap());
         println!("{}", std::str::from_utf8(&out.stdout).unwrap());
     } else {
-        println!("Run '{}' to do it later", selected_item.output());
+        println!("Run '{}' to do it later", command);
     }
 }
 
-fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
+fn parse_data(json_data: json::JsonValue) -> Vec<CommitInfo> {
     let mut commits: Vec<CommitInfo> = Vec::new();
 
     for item in json_data.members() {
@@ -102,15 +103,14 @@ fn parse_data(s: &Settings, json_data: json::JsonValue) -> Vec<CommitInfo> {
         let body = item["revisions"][current_revision]["commit"]["message"]
             .as_str()
             .expect("Failed to find commit message");
-        let download = item["revisions"][current_revision]["fetch"][&s.fetch_method]["commands"]
-            [&s.method]
+        let reference = item["revisions"][current_revision]["ref"]
             .as_str()
-            .expect(&format!("Failed to find download link for {} {} {}", &s.fetch_method, &current_revision, &s.method));
+            .expect("Failed to find ref");
         commits.push(CommitInfo::new(
             title.to_string(),
             author.to_string(),
             body.to_string(),
-            download.to_string(),
+            reference.to_string(),
         ));
     }
     commits
@@ -122,7 +122,7 @@ fn main() {
 
     let json_data = json::parse(&data).unwrap();
 
-    let commits = parse_data(&s, json_data);
+    let commits = parse_data(json_data);
 
     let options = SkimOptionsBuilder::default()
         .height(Some("50%"))
