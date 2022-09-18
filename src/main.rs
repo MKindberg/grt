@@ -40,17 +40,24 @@ fn get_data(s: &Settings) -> String {
     // Need to remove the first line as it contains the magic string )]}' to prevent
     // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
     if s.file.is_empty() {
-        let out = Command::new("curl")
-            .arg("--netrc")
-            .arg("--request")
-            .arg("GET")
-            .arg("--url")
-            .arg(s.get_url())
-            .arg("--header")
-            .arg("Content-Type: application/json")
-            .output()
-            .expect("Failed to fetch commit data");
-        std::str::from_utf8(&out.stdout).unwrap().split('\n').nth(1).unwrap().to_string()
+        let url = s.get_url();
+        if url.starts_with("http") {
+            let out = Command::new("curl")
+                .arg("--netrc")
+                .arg("--request")
+                .arg("GET")
+                .arg("--url")
+                .arg(url)
+                .arg("--header")
+                .arg("Content-Type: application/json")
+                .output()
+                .expect("Failed to fetch http commit data");
+            std::str::from_utf8(&out.stdout)
+                .unwrap()
+                .lines()
+                .nth(1)
+                .unwrap()
+                .to_string()
         // reqwest::blocking::get(s.get_url())
         //     .unwrap()
         //     .text()
@@ -59,20 +66,34 @@ fn get_data(s: &Settings) -> String {
         //     .nth(1)
         //     .expect("Failed to get commit data")
         //     .to_string()
+        } else if url.starts_with("ssh") {
+            let out = Command::new("ssh")
+                .args(url.split_whitespace())
+                .output()
+                .expect("Faield to fetch ssh commit data");
+            let mut items = std::str::from_utf8(&out.stdout)
+                .unwrap()
+                .lines()
+                .collect::<Vec<&str>>();
+            items.pop(); // Last element contains stats
+            format!("[{}]", items.join(","))
+        } else {
+            "".to_string()
+        }
     } else {
         std::fs::read_to_string(&s.file).expect("Should have been able to read the file")
     }
 }
 
 fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
-    println!(
-        "{} '{}' now? (y/N) ",
-        s.method,
-        selected_item.text()
-    );
+    println!("{} '{}' now? (y/N) ", s.method, selected_item.text());
 
     let mut line = String::new();
-    let command = format!("git fetch origin {}; git {} FETCH_HEAD", selected_item.output(), s.method.to_lowercase());
+    let command = format!(
+        "git fetch origin {}; git {} FETCH_HEAD",
+        selected_item.output(),
+        s.method.to_lowercase()
+    );
     std::io::stdin()
         .read_line(&mut line)
         .expect("Could not read user input");
@@ -93,19 +114,31 @@ fn parse_data(json_data: json::JsonValue) -> Vec<CommitInfo> {
     let mut commits: Vec<CommitInfo> = Vec::new();
 
     for item in json_data.members() {
-        let current_revision = item["current_revision"].as_str().unwrap();
+        let current_revision = item["current_revision"].as_str().unwrap_or("");
         let title = item["subject"]
             .as_str()
             .expect("Failed to find commit subject");
         let author = item["revisions"][current_revision]["commit"]["author"]["name"]
             .as_str()
-            .expect("Failed to find commit author");
+            .unwrap_or_else(|| {
+                item["currentPatchSet"]["author"]["name"]
+                    .as_str()
+                    .expect("Failed to find commit author")
+            });
         let body = item["revisions"][current_revision]["commit"]["message"]
             .as_str()
-            .expect("Failed to find commit message");
+            .unwrap_or_else(|| {
+                item["commitMessage"]
+                    .as_str()
+                    .expect("Failed to find commit message")
+            });
         let reference = item["revisions"][current_revision]["ref"]
             .as_str()
-            .expect("Failed to find ref");
+            .unwrap_or_else(|| {
+                item["currentPatchSet"]["ref"]
+                    .as_str()
+                    .expect("Failed to find ref")
+            });
         commits.push(CommitInfo::new(
             title.to_string(),
             author.to_string(),

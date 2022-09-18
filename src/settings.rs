@@ -10,7 +10,8 @@ pub struct Settings {
     query: String,
     debug: bool,
     only_open: bool,
-    query_fields: String,
+    http_query_fields: String,
+    ssh_query_flags: String,
     options: getopts::Options,
 }
 
@@ -63,8 +64,8 @@ impl Settings {
             query: "".to_string(),
             debug: false,
             only_open: true,
-            query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT"
-                .to_string(),
+            http_query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT".to_string(),
+            ssh_query_flags: "--format=JSON --current-patch-set".to_string(),
             options: opts,
         };
 
@@ -119,7 +120,7 @@ impl Settings {
     fn guess_remote() -> String {
         let remote = Self::get_git_config("remote.origin.url");
         // Only support http for now
-        if !remote.starts_with("http") {
+        if !(remote.starts_with("http") || remote.starts_with("ssh")) {
             return "".to_string();
         }
         let parts: Vec<&str> = remote.split('/').collect();
@@ -187,16 +188,23 @@ impl Settings {
     pub fn get_url(&self) -> String {
         let mut url: String = self.base_url.to_string();
 
-        if !url.ends_with('/') {
-            url += "/";
+        if url.starts_with("http") {
+            if !url.ends_with('/') {
+                url += "/";
+            }
+            format!(
+                "{}changes/?q={}&{}",
+                url,
+                &self.query.replace(' ', "+"),
+                &self.http_query_fields
+            )
+        } else if url.starts_with("ssh") {
+            format!(
+                "{} gerrit query {} {}",
+                url, &self.ssh_query_flags, &self.query
+            )
+        } else {
+            "".to_string()
         }
-        url += "changes/?q=";
-        url += &self.query.replace(' ', "+");
-        url += "&";
-        url += &self.query_fields;
-        if self.debug {
-            println!("Url: '{}'", url);
-        }
-        url
     }
 }
