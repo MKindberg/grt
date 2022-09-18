@@ -23,6 +23,42 @@ impl CommitInfo {
     }
 }
 
+impl From<json::JsonValue> for CommitInfo {
+    fn from(data: json::JsonValue) -> Self {
+        let current_revision = data["current_revision"].as_str().unwrap_or("");
+        let title = data["subject"]
+            .as_str()
+            .expect("Failed to find commit subject");
+        let author = data["revisions"][current_revision]["commit"]["author"]["name"]
+            .as_str()
+            .unwrap_or_else(|| {
+                data["currentPatchSet"]["author"]["name"]
+                    .as_str()
+                    .expect("Failed to find commit author")
+            });
+        let body = data["revisions"][current_revision]["commit"]["message"]
+            .as_str()
+            .unwrap_or_else(|| {
+                data["commitMessage"]
+                    .as_str()
+                    .expect("Failed to find commit message")
+            });
+        let reference = data["revisions"][current_revision]["ref"]
+            .as_str()
+            .unwrap_or_else(|| {
+                data["currentPatchSet"]["ref"]
+                    .as_str()
+                    .expect("Failed to find ref")
+            });
+        Self::new(
+            title.to_string(),
+            author.to_string(),
+            body.to_string(),
+            reference.to_string(),
+        )
+    }
+}
+
 impl SkimItem for CommitInfo {
     fn text(&self) -> Cow<str> {
         Cow::Owned(format!("{} - {}", self.title, self.author))
@@ -110,52 +146,8 @@ fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
     }
 }
 
-fn parse_data(json_data: json::JsonValue) -> Vec<CommitInfo> {
-    let mut commits: Vec<CommitInfo> = Vec::new();
-
-    for item in json_data.members() {
-        let current_revision = item["current_revision"].as_str().unwrap_or("");
-        let title = item["subject"]
-            .as_str()
-            .expect("Failed to find commit subject");
-        let author = item["revisions"][current_revision]["commit"]["author"]["name"]
-            .as_str()
-            .unwrap_or_else(|| {
-                item["currentPatchSet"]["author"]["name"]
-                    .as_str()
-                    .expect("Failed to find commit author")
-            });
-        let body = item["revisions"][current_revision]["commit"]["message"]
-            .as_str()
-            .unwrap_or_else(|| {
-                item["commitMessage"]
-                    .as_str()
-                    .expect("Failed to find commit message")
-            });
-        let reference = item["revisions"][current_revision]["ref"]
-            .as_str()
-            .unwrap_or_else(|| {
-                item["currentPatchSet"]["ref"]
-                    .as_str()
-                    .expect("Failed to find ref")
-            });
-        commits.push(CommitInfo::new(
-            title.to_string(),
-            author.to_string(),
-            body.to_string(),
-            reference.to_string(),
-        ));
-    }
-    commits
-}
-
 fn main() {
     let s = Settings::new();
-    let data = get_data(&s);
-
-    let json_data = json::parse(&data).unwrap();
-
-    let commits = parse_data(json_data);
 
     let options = SkimOptionsBuilder::default()
         .height(Some("50%"))
@@ -167,9 +159,13 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    for commit in commits {
-        let _ = tx_item.send(Arc::new(commit));
-    }
+    let _ = json::parse(&get_data(&s))
+        .unwrap()
+        .members()
+        .cloned()
+        .map(CommitInfo::from)
+        .map(Arc::new)
+        .map(|x| tx_item.send(x));
     drop(tx_item); // so that skim could know when to stop waiting for more items.
 
     let res = &Skim::run_with(&options, Some(rx_item)).unwrap();
