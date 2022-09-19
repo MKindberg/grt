@@ -22,13 +22,13 @@ impl Settings {
         opts.optopt(
             "u",
             "url",
-            "The url to Gerrit, can also be set with the env var GERRIT_URL or guessed",
+            "Override the auto-detected url",
             "URL",
         );
         opts.optopt(
             "p",
             "project",
-            "The project to search in (will check remote.origin.projectname by default)",
+            "Override the auto-detected project name",
             "NAME",
         );
         opts.optflag("c", "closed", "Include closed commits");
@@ -59,7 +59,7 @@ impl Settings {
         let mut s = Self {
             method: "".to_string(),
             file: "".to_string(),
-            base_url: env::var("GERRIT_URL").unwrap_or_else(|_| Self::guess_remote()),
+            base_url: Self::guess_remote(),
             project: "".to_string(),
             query: "".to_string(),
             debug: false,
