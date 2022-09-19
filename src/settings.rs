@@ -132,13 +132,12 @@ impl Settings {
     }
 
     fn get_project(url: &str) -> String {
-        let mut project = Self::get_git_config("remote.origin.projectname");
-        project.trim_end_matches(".git").to_string();
+        let mut project = Self::get_git_config("remote.origin.projectname").trim_end_matches(".git").to_string();
         if project.is_empty() {
             project = Self::get_git_config("remote.origin.url")
                 .trim_end_matches(".git")
                 .trim_start_matches(url)
-                .trim_start_matches("/")
+                .trim_start_matches('/')
                 .to_string();
         }
         project
