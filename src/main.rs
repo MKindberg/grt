@@ -13,11 +13,18 @@ struct CommitInfo {
 }
 
 impl CommitInfo {
-    fn new(title: String, author: String, body: String, reference: String) -> Self {
+    fn new(
+        title: String,
+        author: String,
+        body: String,
+        reference: String,
+        files: Vec<String>,
+    ) -> Self {
+        let full_body = body + "\n\n" + &files.join("\n");
         CommitInfo {
             title,
             author,
-            body,
+            body: full_body,
             reference,
         }
     }
@@ -50,11 +57,37 @@ impl From<json::JsonValue> for CommitInfo {
                     .as_str()
                     .expect("Failed to find ref")
             });
+        let mut files: Vec<String> = Vec::new();
+        for file in data["revisions"][current_revision]["files"].entries() {
+            files.push(format!(
+                "{} {} +{} -{}",
+                file.1["status"].as_str().unwrap_or(""),
+                file.0,
+                file.1["lines_inserted"].as_i32().unwrap_or(0),
+                file.1["lines_deleted"].as_i32().unwrap_or(0)
+            ));
+        }
+
+        for file in data["currentPatchSet"]["files"].members().skip(1) {
+            files.push(format!(
+                "{} {} +{} -{}",
+                file["type"]
+                    .as_str()
+                    .unwrap_or("")
+                    .chars()
+                    .next()
+                    .unwrap_or(' '),
+                file["file"],
+                file["insertions"],
+                file["deletions"]
+            ));
+        }
         Self::new(
             title.to_string(),
             author.to_string(),
             body.to_string(),
             reference.to_string(),
+            files,
         )
     }
 }
@@ -164,7 +197,9 @@ fn main() {
         .cloned()
         .map(CommitInfo::from)
         .map(Arc::new)
-        .for_each(|x| {let _ = tx_item.send(x);});
+        .for_each(|x| {
+            let _ = tx_item.send(x);
+        });
     drop(tx_item); // so that skim could know when to stop waiting for more items.
 
     let res = &Skim::run_with(&options, Some(rx_item)).unwrap();
