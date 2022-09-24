@@ -119,6 +119,12 @@ impl SkimItem for CommitInfo {
     }
 }
 
+impl Selector for CommitInfo {
+    fn should_select(&self, _index: usize, _item: &dyn SkimItem) -> bool {
+        true
+    }
+}
+
 fn get_data(s: &Settings) -> String {
     if s.file.is_empty() {
         let url = s.get_url();
@@ -221,11 +227,17 @@ fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
 fn main() {
     let s = Settings::new();
 
+    let selector = if s.select_all {
+        DefaultSkimSelector::default().regex(".*")
+    } else {
+        DefaultSkimSelector::default().regex("")
+    };
     let options = SkimOptionsBuilder::default()
         .height(Some("50%"))
         .multi(true)
         .select1(true)
         .exit0(true)
+        .selector(Some(Rc::new(selector)))
         .preview(Some("")) // preview should be specified to enable preview window
         .build()
         .unwrap();

@@ -5,6 +5,7 @@ use std::process::{Command, Stdio};
 pub struct Settings {
     pub method: String,
     pub file: String,
+    pub select_all: bool,
     base_url: String,
     project: String,
     query: String,
@@ -32,6 +33,7 @@ impl Settings {
             "open",
             "Don't include closed commits (default, will override -c if set)",
         );
+        opts.optflag("a", "all", "pre-select all commits");
         opts.optflag("", "debug", "Print debug information while running");
         opts.optopt(
             "f",
@@ -57,6 +59,7 @@ impl Settings {
             base_url: Self::guess_remote(),
             project: "".to_string(),
             query: "".to_string(),
+            select_all: false,
             debug: false,
             only_open: true,
             http_query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES".to_string(),
@@ -124,6 +127,7 @@ impl Settings {
             .expect("Failed to run")
             .success()
     }
+
     fn get_repo_manifest_dir() -> String {
         let out = Command::new("repo")
             .arg("list")
@@ -199,6 +203,9 @@ impl Settings {
             self.only_open = false;
         }
 
+        if matches.opt_present("all") {
+            self.select_all = true;
+        }
         if matches.opt_present("debug") {
             self.debug = true;
         }
