@@ -153,15 +153,24 @@ fn get_data(s: &Settings) -> String {
     }
 }
 
-fn execute_command(s: &Settings, selected_item: &Arc<dyn SkimItem>) {
-    println!("{} '{}' now? (y/N) ", s.method, selected_item.text());
+fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
+    println!("{} the following commit(s) now? (y/N) ", s.method);
+    for i in selected_items {
+        println!("* {}", i.text());
+    }
 
     let mut line = String::new();
-    let command = format!(
-        "git fetch origin {}; git {} FETCH_HEAD",
-        selected_item.output(),
-        s.method.to_lowercase()
-    );
+    let command = selected_items
+        .iter()
+        .map(|i| {
+            format!(
+                "git fetch origin {} && git {} FETCH_HEAD",
+                i.output(),
+                s.method.to_lowercase()
+            )
+        })
+        .collect::<Vec<String>>()
+        .join(" && ");
     std::io::stdin()
         .read_line(&mut line)
         .expect("Could not read user input");
@@ -183,7 +192,7 @@ fn main() {
 
     let options = SkimOptionsBuilder::default()
         .height(Some("50%"))
-        .multi(false)
+        .multi(true)
         .select1(true)
         .exit0(true)
         .preview(Some("")) // preview should be specified to enable preview window
@@ -206,5 +215,5 @@ fn main() {
     if res.final_event == Event::EvActAbort {
         std::process::exit(1);
     }
-    execute_command(&s, &res.selected_items[0])
+    execute_command(&s, &res.selected_items)
 }
