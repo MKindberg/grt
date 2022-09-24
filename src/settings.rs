@@ -1,6 +1,6 @@
 use getopts::Options;
 use std::env;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 pub struct Settings {
     pub method: String,
@@ -19,12 +19,7 @@ impl Settings {
     pub fn new() -> Self {
         let mut opts = Options::new();
         opts.optflag("h", "help", "Print this menu");
-        opts.optopt(
-            "u",
-            "url",
-            "Override the auto-detected url",
-            "URL",
-        );
+        opts.optopt("u", "url", "Override the auto-detected url", "URL");
         opts.optopt(
             "p",
             "project",
@@ -107,8 +102,10 @@ impl Settings {
         s
     }
 
-    fn get_git_config(config: &str) -> String {
+    fn get_git_config(config: &str, dir: &str) -> String {
         let out = Command::new("git")
+            .arg("-C")
+            .arg(dir)
             .arg("config")
             .arg("--get")
             .arg(config)
@@ -117,8 +114,42 @@ impl Settings {
         std::str::from_utf8(&out.stdout).unwrap().trim().to_string()
     }
 
+    fn is_git() -> bool {
+        Command::new("git")
+            .arg("rev-parse")
+            .arg("--is-inside-work-tree")
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .status()
+            .expect("Failed to run")
+            .success()
+    }
+    fn get_repo_manifest_dir() -> String {
+        let out = Command::new("repo")
+            .arg("list")
+            .arg("manifest.git")
+            .arg("--relative-to=.")
+            .output()
+            .expect("Failed to run");
+        std::str::from_utf8(&out.stdout)
+            .unwrap()
+            .trim()
+            .to_string()
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_string()
+    }
+
     fn guess_remote() -> String {
-        let remote = Self::get_git_config("remote.origin.url");
+        let manifest_dir = Self::get_repo_manifest_dir();
+        let git_dir = if Self::is_git() || manifest_dir.is_empty() {
+            "."
+        } else {
+            &manifest_dir[..]
+        };
+
+        let remote = Self::get_git_config("remote.origin.url", git_dir);
         // Only support http for now
         if !(remote.starts_with("http") || remote.starts_with("ssh")) {
             return "".to_string();
@@ -132,9 +163,11 @@ impl Settings {
     }
 
     fn get_project(url: &str) -> String {
-        let mut project = Self::get_git_config("remote.origin.projectname").trim_end_matches(".git").to_string();
+        let mut project = Self::get_git_config("remote.origin.projectname", ".")
+            .trim_end_matches(".git")
+            .to_string();
         if project.is_empty() {
-            project = Self::get_git_config("remote.origin.url")
+            project = Self::get_git_config("remote.origin.url", ".")
                 .trim_end_matches(".git")
                 .trim_start_matches(url)
                 .trim_start_matches('/')
