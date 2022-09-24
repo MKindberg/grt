@@ -7,25 +7,34 @@ use std::process::Command;
 #[derive(Debug)]
 struct CommitInfo {
     title: String,
-    author: String,
     body: String,
     reference: String,
 }
 
 impl CommitInfo {
     fn new(
+        is_git: bool,
+        project: String,
         title: String,
         author: String,
         body: String,
         reference: String,
         files: Vec<String>,
     ) -> Self {
-        let full_body = body + "\n\n" + &files.join("\n");
         CommitInfo {
-            title,
-            author,
-            body: full_body,
-            reference,
+            title: if is_git {
+                "".to_string()
+            } else {
+                project.to_string() + " - "
+            } + &title
+                + " - "
+                + &author,
+            body: body + "\n\n" + &files.join("\n"),
+            reference: if is_git {
+                reference
+            } else {
+                project + ".git " + &reference.split('/').collect::<Vec<&str>>()[3..].join("/")
+            },
         }
     }
 }
@@ -33,6 +42,9 @@ impl CommitInfo {
 impl From<json::JsonValue> for CommitInfo {
     fn from(data: json::JsonValue) -> Self {
         let current_revision = data["current_revision"].as_str().unwrap_or("");
+        let project = data["project"]
+            .as_str()
+            .expect("Failed to get project name");
         let title = data["subject"]
             .as_str()
             .expect("Failed to find commit subject");
@@ -83,6 +95,8 @@ impl From<json::JsonValue> for CommitInfo {
             ));
         }
         Self::new(
+            Settings::is_git(),
+            project.to_string(),
             title.to_string(),
             author.to_string(),
             body.to_string(),
@@ -94,7 +108,7 @@ impl From<json::JsonValue> for CommitInfo {
 
 impl SkimItem for CommitInfo {
     fn text(&self) -> Cow<str> {
-        Cow::Owned(format!("{} - {}", self.title, self.author))
+        Cow::Borrowed(&self.title)
     }
 
     fn preview(&self, _context: PreviewContext) -> ItemPreview {
@@ -160,17 +174,34 @@ fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
     }
 
     let mut line = String::new();
-    let command = selected_items
-        .iter()
-        .map(|i| {
-            format!(
-                "git fetch origin {} && git {} FETCH_HEAD",
-                i.output(),
-                s.method.to_lowercase()
-            )
-        })
-        .collect::<Vec<String>>()
-        .join(" && ");
+    let commands: Vec<String> = if Settings::is_git() {
+        selected_items
+            .iter()
+            .map(|i| {
+                format!(
+                    "git fetch origin {} && git {} FETCH_HEAD",
+                    i.output(),
+                    s.method.to_lowercase()
+                )
+            })
+            .collect()
+    } else {
+        selected_items
+            .iter()
+            .map(|i| {
+                format!(
+                    "repo download {} {}",
+                    i.output(),
+                    if s.method.to_lowercase() == "cherry-pick" {
+                        "--cherry-pick"
+                    } else {
+                        ""
+                    }
+                )
+            })
+            .collect()
+    };
+    let command = commands.join(" && ");
     std::io::stdin()
         .read_line(&mut line)
         .expect("Could not read user input");

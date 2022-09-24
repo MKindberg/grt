@@ -114,7 +114,7 @@ impl Settings {
         std::str::from_utf8(&out.stdout).unwrap().trim().to_string()
     }
 
-    fn is_git() -> bool {
+    pub fn is_git() -> bool {
         Command::new("git")
             .arg("rev-parse")
             .arg("--is-inside-work-tree")
