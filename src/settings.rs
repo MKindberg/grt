@@ -58,7 +58,7 @@ impl Settings {
             file: "".to_string(),
             base_url: Self::guess_remote(),
             project: "".to_string(),
-            query: "".to_string(),
+            query: "limit:200 ".to_string(),
             select_all: false,
             debug: false,
             only_open: true,
