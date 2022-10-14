@@ -3,6 +3,7 @@ mod settings;
 use settings::Settings;
 use skim::prelude::*;
 use std::process::Command;
+use std::io::Write;
 
 #[derive(Debug)]
 struct CommitInfo {
@@ -174,10 +175,12 @@ fn get_data(s: &Settings) -> String {
 }
 
 fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
-    println!("{} the following commit(s) now? (y/N) ", s.method);
+    println!("{} the following commit(s) now?", s.method);
     for i in selected_items {
         println!("* {}", i.text());
     }
+    print!("(y/N) ");
+    std::io::stdout().flush().unwrap();
 
     let mut line = String::new();
     let commands: Vec<String> = if Settings::is_git() {
