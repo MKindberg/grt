@@ -2,8 +2,8 @@ mod settings;
 
 use settings::Settings;
 use skim::prelude::*;
-use std::process::Command;
 use std::io::Write;
+use std::process::Command;
 
 #[derive(Debug)]
 struct CommitInfo {
@@ -12,6 +12,7 @@ struct CommitInfo {
     reference: String,
 }
 
+#[allow(clippy::too_many_arguments)]
 impl CommitInfo {
     fn new(
         is_git: bool,
@@ -21,6 +22,7 @@ impl CommitInfo {
         body: String,
         reference: String,
         files: Vec<String>,
+        branch: String,
     ) -> Self {
         CommitInfo {
             title: if is_git {
@@ -30,7 +32,7 @@ impl CommitInfo {
             } + &title
                 + " - "
                 + &author,
-            body: body + "\n\n" + &files.join("\n"),
+            body: body + "\n---\n\nBranch: " + &branch + "\n\n" + &files.join("\n"),
             reference: if is_git {
                 reference
             } else {
@@ -95,6 +97,7 @@ impl From<json::JsonValue> for CommitInfo {
                 file["deletions"]
             ));
         }
+        let branch = data["branch"].as_str().expect("Failed to find branch");
         Self::new(
             Settings::is_git(),
             project.to_string(),
@@ -103,6 +106,7 @@ impl From<json::JsonValue> for CommitInfo {
             body.to_string(),
             reference.to_string(),
             files,
+            branch.to_string(),
         )
     }
 }
