@@ -63,7 +63,8 @@ impl Settings {
             debug: false,
             only_open: true,
             http_query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES".to_string(),
-            ssh_query_flags: "--format=JSON --current-patch-set --files".to_string(),
+            ssh_query_flags: "--format=JSON --current-patch-set --files --commit-message
+".to_string(),
             options: opts,
         };
 
