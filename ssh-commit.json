@@ -1,0 +1,103 @@
+[{
+    "project": "dummy",
+    "branch": "main",
+    "id": "I95eda6180426529e4c959c60a7a575751a00fc20",
+    "number": 41,
+    "subject": "follow-up commit",
+    "owner": {
+        "name": "Administrator",
+        "email": "admin@example.com",
+        "username": "admin"
+    },
+    "url": "http://pi:8000/c/dummy/+/41",
+    "commitMessage": "follow-up commit\n\nChange-Id: I95eda6180426529e4c959c60a7a575751a00fc20\n",
+    "createdOn": 1663956284,
+    "lastUpdated": 1663956284,
+    "open": true,
+    "status": "NEW",
+    "wip": true,
+    "currentPatchSet": {
+        "number": 1,
+        "revision": "4efee3bab6f86af26cec8e3f798e9f6cfc0a41b7",
+        "parents": [
+            "6717c956c4c93cc3002f1310fd466c3bbe2e9897"
+        ],
+        "ref": "refs/changes/41/41/1",
+        "uploader": {
+            "name": "Administrator",
+            "email": "admin@example.com",
+            "username": "admin"
+        },
+        "createdOn": 1663956284,
+        "author": {
+            "name": "Administrator",
+            "email": "admin@example.com",
+            "username": "admin"
+        },
+        "kind": "REWORK",
+        "files": [
+            {
+                "file": "/COMMIT_MSG",
+                "type": "ADDED",
+                "insertions": 9,
+                "deletions": 0
+            }
+        ],
+        "sizeInsertions": 9,
+        "sizeDeletions": 0
+    }
+},
+{
+    "project": "dummy",
+    "branch": "main",
+    "id": "Ie61179aba5e7ef87541b6dc8ec26fe58403b336e",
+    "number": 2,
+    "subject": "Second commit",
+    "owner": {
+        "name": "Administrator",
+        "email": "admin@example.com",
+        "username": "admin"
+    },
+    "url": "http://pi:8000/c/dummy/+/2",
+    "commitMessage": "Second commit\n\nChange-Id: Ie61179aba5e7ef87541b6dc8ec26fe58403b336e\n",
+    "createdOn": 1663446676,
+    "lastUpdated": 1663446717,
+    "open": true,
+    "status": "NEW",
+    "currentPatchSet": {
+        "number": 2,
+        "revision": "6717c956c4c93cc3002f1310fd466c3bbe2e9897",
+        "parents": [
+            "ab19ef50faf4a033642f814cae3638e2c8a673c5"
+        ],
+        "ref": "refs/changes/02/2/2",
+        "uploader": {
+            "name": "Administrator",
+            "email": "admin@example.com",
+            "username": "admin"
+        },
+        "createdOn": 1663446713,
+        "author": {
+            "name": "Administrator",
+            "email": "admin@example.com",
+            "username": "admin"
+        },
+        "kind": "REWORK",
+        "files": [
+            {
+                "file": "/COMMIT_MSG",
+                "type": "ADDED",
+                "insertions": 9,
+                "deletions": 0
+            },
+            {
+                "file": "README-md",
+                "type": "ADDED",
+                "insertions": 1,
+                "deletions": 0
+            }
+        ],
+        "sizeInsertions": 10,
+        "sizeDeletions": 0
+    }
+}]

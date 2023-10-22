@@ -1,7 +1,7 @@
 use crate::settings::Settings;
 use skim::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct CommitInfo {
     title: String,
     body: String,
@@ -18,27 +18,29 @@ pub enum JsonType {
 impl CommitInfo {
     fn new(
         is_git: bool,
-        project: String,
-        title: String,
-        author: String,
-        body: String,
-        reference: String,
+        project: &str,
+        title: &str,
+        author: &str,
+        body: &str,
+        reference: &str,
         files: Vec<String>,
-        branch: String,
+        branch: &str,
     ) -> Self {
         CommitInfo {
             title: if is_git {
                 "".to_string()
             } else {
                 project.to_string() + " - "
-            } + &title
+            } + title
                 + " - "
-                + &author,
-            body: body + "\n---\n\nBranch: " + &branch + "\n\n" + &files.join("\n"),
+                + author,
+            body: body.to_string() + "\n---\n\nBranch: " + branch + "\n\n" + &files.join("\n"),
             reference: if is_git {
-                reference
+                reference.to_string()
             } else {
-                project + ".git " + &reference.split('/').collect::<Vec<&str>>()[3..].join("/")
+                project.to_string()
+                    + ".git "
+                    + &reference.split('/').collect::<Vec<&str>>()[3..].join("/")
             },
         }
     }
@@ -78,13 +80,13 @@ impl CommitInfo {
         }
         Self::new(
             Settings::is_git(),
-            project.to_string(),
-            title.to_string(),
-            author.to_string(),
-            body.to_string(),
-            reference.to_string(),
+            project,
+            title,
+            author,
+            body,
+            reference,
             files,
-            branch.to_string(),
+            branch,
         )
     }
 
@@ -119,13 +121,13 @@ impl CommitInfo {
         }
         Self::new(
             Settings::is_git(),
-            project.to_string(),
-            title.to_string(),
-            author.to_string(),
-            body.to_string(),
-            reference.to_string(),
+            project,
+            title,
+            author,
+            body,
+            reference,
             files,
-            branch.to_string(),
+            branch,
         )
     }
     pub fn from_json(json_type: &JsonType, data: &json::JsonValue) -> Self {
@@ -152,5 +154,48 @@ impl SkimItem for CommitInfo {
 impl Selector for CommitInfo {
     fn should_select(&self, _index: usize, _item: &dyn SkimItem) -> bool {
         true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    #[test]
+    fn test_ssh() {
+        let json_data = fs::read_to_string("ssh-commit.json").expect("Failed to open test file");
+        let parsed_data = json::parse(&json_data)
+            .unwrap()
+            .members()
+            .cloned()
+            .map(|data| CommitInfo::from_json(&JsonType::SSH, &data))
+            .collect::<Vec<CommitInfo>>();
+        assert_eq!(parsed_data.len(), 2);
+        assert_eq!(
+            parsed_data[0],
+            CommitInfo::new(
+                true,
+                "dummy",
+                "follow-up commit",
+                "Administrator",
+                "follow-up commit\n\nChange-Id: I95eda6180426529e4c959c60a7a575751a00fc20\n",
+                "refs/changes/41/41/1",
+                vec![],
+                "main"
+            )
+        );
+        assert_eq!(
+            parsed_data[1],
+            CommitInfo::new(
+                true,
+                "dummy",
+                "Second commit",
+                "Administrator",
+                "Second commit\n\nChange-Id: Ie61179aba5e7ef87541b6dc8ec26fe58403b336e\n",
+                "refs/changes/02/2/2",
+                vec!["A README-md +1 -0".to_string()],
+                "main"
+            )
+        );
     }
 }
