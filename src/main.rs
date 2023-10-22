@@ -2,7 +2,7 @@ mod settings;
 mod commit_info;
 
 use settings::Settings;
-use commit_info::CommitInfo;
+use commit_info::{CommitInfo, JsonType};
 use skim::prelude::*;
 use std::io::Write;
 use std::process::Command;
@@ -127,11 +127,12 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
+    let json_type = if s.get_url().starts_with("ssh") {JsonType::SSH} else {JsonType::HTTP};
     json::parse(&get_data(&s))
         .unwrap()
         .members()
         .cloned()
-        .map(CommitInfo::from)
+        .map(|data| CommitInfo::from_json(&json_type, &data))
         .map(Arc::new)
         .for_each(|x| {
             let _ = tx_item.send(x);
