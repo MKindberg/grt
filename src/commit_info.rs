@@ -3,9 +3,14 @@ use skim::prelude::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct CommitInfo {
-    title: String,
-    body: String,
+    is_git: bool,
+    project: String,
+    subject: String,
+    message: String,
+    author: String,
+    branch: String,
     reference: String,
+    files: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -19,49 +24,71 @@ impl CommitInfo {
     fn new(
         is_git: bool,
         project: &str,
-        title: &str,
+        subject: &str,
+        message: &str,
         author: &str,
-        body: &str,
+        branch: &str,
         reference: &str,
         files: Vec<String>,
-        branch: &str,
     ) -> Self {
         CommitInfo {
-            title: if is_git {
-                "".to_string()
-            } else {
-                project.to_string() + " - "
-            } + title
-                + " - "
-                + author,
-            body: body.to_string() + "\n---\n\nBranch: " + branch + "\n\n" + &files.join("\n"),
-            reference: if is_git {
-                reference.to_string()
-            } else {
-                project.to_string()
-                    + ".git "
-                    + &reference.split('/').collect::<Vec<&str>>()[3..].join("/")
-            },
+            is_git,
+            project: project.to_string(),
+            subject: subject.to_string(),
+            message: message.to_string(),
+            author: author.to_string(),
+            branch: branch.to_string(),
+            reference: reference.to_string(),
+            files,
         }
+    }
+    pub fn get_title(&self) -> String {
+        return if self.is_git {
+            "".to_string()
+        } else {
+            self.project.clone() + " - "
+        } + &self.subject
+            + " - "
+            + &self.author;
+    }
+
+    pub fn get_body(&self) -> String {
+        return self.message.clone()
+            + "\n---\n\nBranch: "
+            + &self.branch
+            + "\n\n"
+            + &self.files.join("\n");
+    }
+
+    pub fn get_reference(&self) -> String {
+        return if self.is_git {
+            self.reference.clone()
+        } else {
+            self.project.clone()
+                + ".git "
+                + &self.reference.split('/').collect::<Vec<&str>>()[3..].join("/")
+        };
     }
 
     fn from_ssh_json(data: &json::JsonValue) -> Self {
         let project = data["project"]
             .as_str()
             .expect("Failed to get project name");
-        let title = data["subject"]
+        let subject = data["subject"]
             .as_str()
             .expect("Failed to find commit subject");
         let author = data["currentPatchSet"]["author"]["name"]
             .as_str()
             .expect("Failed to find commit author");
-        let body = data["commitMessage"]
+        let message = data["commitMessage"]
             .as_str()
             .expect("Failed to find commit message");
         let reference = data["currentPatchSet"]["ref"]
             .as_str()
             .expect("Failed to find ref");
-        let branch = data["branch"].as_str().expect("Failed to find branch");
+        let branch = data["branch"]
+            .as_str()
+            .expect("Failed to find branch");
 
         let mut files: Vec<String> = Vec::new();
         for file in data["currentPatchSet"]["files"].members().skip(1) {
@@ -78,15 +105,15 @@ impl CommitInfo {
                 file["deletions"]
             ));
         }
-        Self::new(
+        Self::new (
             Settings::is_git(),
             project,
-            title,
+            subject,
+            message,
             author,
-            body,
+            branch,
             reference,
             files,
-            branch,
         )
     }
 
@@ -95,13 +122,13 @@ impl CommitInfo {
         let project = data["project"]
             .as_str()
             .expect("Failed to get project name");
-        let title = data["subject"]
+        let subject = data["subject"]
             .as_str()
             .expect("Failed to find commit subject");
         let author = data["revisions"][current_revision]["commit"]["author"]["name"]
             .as_str()
             .expect("Failed to find commit author");
-        let body = data["revisions"][current_revision]["commit"]["message"]
+        let message = data["revisions"][current_revision]["commit"]["message"]
             .as_str()
             .expect("Failed to find commit message");
         let reference = data["revisions"][current_revision]["ref"]
@@ -122,12 +149,12 @@ impl CommitInfo {
         Self::new(
             Settings::is_git(),
             project,
-            title,
+            subject,
+            message,
             author,
-            body,
+            branch,
             reference,
             files,
-            branch,
         )
     }
     pub fn from_json(json_type: &JsonType, data: &json::JsonValue) -> Self {
@@ -140,14 +167,14 @@ impl CommitInfo {
 
 impl SkimItem for CommitInfo {
     fn text(&self) -> Cow<str> {
-        Cow::Borrowed(&self.title)
+        Cow::Owned(self.get_title())
     }
 
     fn preview(&self, _context: PreviewContext) -> ItemPreview {
-        ItemPreview::Text(self.body.to_string())
+        ItemPreview::Text(self.get_body())
     }
     fn output(&self) -> Cow<str> {
-        Cow::Borrowed(&self.reference)
+        Cow::Owned(self.get_reference())
     }
 }
 
@@ -177,11 +204,11 @@ mod tests {
                 true,
                 "dummy",
                 "follow-up commit",
-                "Administrator",
                 "follow-up commit\n\nChange-Id: I95eda6180426529e4c959c60a7a575751a00fc20\n",
+                "Administrator",
+                "main",
                 "refs/changes/41/41/1",
                 vec![],
-                "main"
             )
         );
         assert_eq!(
@@ -190,11 +217,11 @@ mod tests {
                 true,
                 "dummy",
                 "Second commit",
-                "Administrator",
                 "Second commit\n\nChange-Id: Ie61179aba5e7ef87541b6dc8ec26fe58403b336e\n",
+                "Administrator",
+                "main",
                 "refs/changes/02/2/2",
                 vec!["A README-md +1 -0".to_string()],
-                "main"
             )
         );
     }
