@@ -11,6 +11,7 @@ pub struct CommitInfo {
     branch: String,
     reference: String,
     files: Vec<String>,
+    topic: Option<String>,
 }
 
 #[derive(Debug)]
@@ -30,6 +31,7 @@ impl CommitInfo {
         branch: &str,
         reference: &str,
         files: Vec<String>,
+        topic: Option<&str>,
     ) -> Self {
         CommitInfo {
             is_git,
@@ -40,6 +42,7 @@ impl CommitInfo {
             branch: branch.to_string(),
             reference: reference.to_string(),
             files,
+            topic: topic.map(|s| s.to_string()),
         }
     }
     pub fn get_title(&self) -> String {
@@ -86,9 +89,7 @@ impl CommitInfo {
         let reference = data["currentPatchSet"]["ref"]
             .as_str()
             .expect("Failed to find ref");
-        let branch = data["branch"]
-            .as_str()
-            .expect("Failed to find branch");
+        let branch = data["branch"].as_str().expect("Failed to find branch");
 
         let mut files: Vec<String> = Vec::new();
         for file in data["currentPatchSet"]["files"].members().skip(1) {
@@ -105,7 +106,9 @@ impl CommitInfo {
                 file["deletions"]
             ));
         }
-        Self::new (
+
+        let topic = data["topic"].as_str();
+        Self::new(
             Settings::is_git(),
             project,
             subject,
@@ -114,6 +117,7 @@ impl CommitInfo {
             branch,
             reference,
             files,
+            topic,
         )
     }
 
@@ -146,6 +150,8 @@ impl CommitInfo {
                 file.1["lines_deleted"].as_i32().unwrap_or(0)
             ));
         }
+
+        let topic = data["topic"].as_str();
         Self::new(
             Settings::is_git(),
             project,
@@ -155,6 +161,7 @@ impl CommitInfo {
             branch,
             reference,
             files,
+            topic,
         )
     }
     pub fn from_json(json_type: &JsonType, data: &json::JsonValue) -> Self {
@@ -209,6 +216,7 @@ mod tests {
                 "main",
                 "refs/changes/41/41/1",
                 vec![],
+                None,
             )
         );
         assert_eq!(
@@ -222,6 +230,7 @@ mod tests {
                 "main",
                 "refs/changes/02/2/2",
                 vec!["A README-md +1 -0".to_string()],
+                None,
             )
         );
     }
