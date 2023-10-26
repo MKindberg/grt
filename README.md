@@ -15,7 +15,6 @@ Options:
 | -- | -------| --------|
 | -h | --help |     Print help menu |
 | -u URL | --url URL  |     Override the auto-detected gerrit url |
-| -p NAME | --project NAME|  Override the auto-detected project name |
 | -c | --closed     |   Include closed commits|
 | -o | --open       |   Don't include closed commits (default, will override -c if set)|
 |   | --debug      |   Print debug information while running|

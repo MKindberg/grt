@@ -1,8 +1,9 @@
-mod settings;
+mod repo_info;
 mod commit_info;
+mod settings;
 
-use settings::Settings;
 use commit_info::{CommitInfo, JsonType};
+use settings::Settings;
 use skim::prelude::*;
 use std::io::Write;
 use std::process::Command;
@@ -127,7 +128,12 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    let json_type = if s.get_url().starts_with("ssh") {JsonType::SSH} else {JsonType::HTTP};
+    let json_type = if s.get_url().starts_with("ssh") {
+        JsonType::SSH
+    } else {
+        JsonType::HTTP
+    };
+    std::fs::write("output.json", &get_data(&s)).unwrap();
     json::parse(&get_data(&s))
         .unwrap()
         .members()

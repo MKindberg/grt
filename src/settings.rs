@@ -2,18 +2,19 @@ use getopts::Options;
 use std::env;
 use std::process::{Command, Stdio};
 
+use crate::repo_info::RepoInfo;
+
 pub struct Settings {
     pub method: String,
     pub file: String,
     pub select_all: bool,
-    base_url: String,
-    project: String,
     query: String,
     debug: bool,
     only_open: bool,
     http_query_fields: String,
     ssh_query_flags: String,
     options: getopts::Options,
+    repo_info: RepoInfo,
 }
 
 impl Settings {
@@ -21,12 +22,6 @@ impl Settings {
         let mut opts = Options::new();
         opts.optflag("h", "help", "Print this menu");
         opts.optopt("u", "url", "Override the auto-detected url", "URL");
-        opts.optopt(
-            "p",
-            "project",
-            "Override the auto-detected project name",
-            "NAME",
-        );
         opts.optflag("c", "closed", "Include closed commits");
         opts.optflag(
             "o",
@@ -56,8 +51,6 @@ impl Settings {
         let mut s = Self {
             method: "".to_string(),
             file: "".to_string(),
-            base_url: Self::guess_remote(),
-            project: "".to_string(),
             query: "limit:200 ".to_string(),
             select_all: false,
             debug: false,
@@ -66,10 +59,10 @@ impl Settings {
             ssh_query_flags: "--format=JSON --current-patch-set --files --commit-message
 ".to_string(),
             options: opts,
+            repo_info: RepoInfo::new(),
         };
 
         s.parse_args(&matches_env);
-        s.project = Self::get_project(&s.base_url);
         s.parse_args(&matches_cmd);
 
         if matches_cmd.free.is_empty() {
@@ -98,24 +91,12 @@ impl Settings {
             );
             println!("Query: '{}'", s.query);
         }
-        if s.base_url.is_empty() && s.file.is_empty() {
+        if s.repo_info.remote_url.is_empty() && s.file.is_empty() {
             println!("Couldn't guess Gerrit url, must provide a url through either $GERRIT_URL or the -u option");
             std::process::exit(1);
         }
 
         s
-    }
-
-    fn get_git_config(config: &str, dir: &str) -> String {
-        let out = Command::new("git")
-            .arg("-C")
-            .arg(dir)
-            .arg("config")
-            .arg("--get")
-            .arg(config)
-            .output()
-            .expect("Failed to run");
-        std::str::from_utf8(&out.stdout).unwrap().trim().to_string()
     }
 
     pub fn is_git() -> bool {
@@ -127,58 +108,6 @@ impl Settings {
             .status()
             .expect("Failed to run")
             .success()
-    }
-
-    fn get_repo_manifest_dir() -> String {
-        let out = Command::new("repo")
-            .arg("list")
-            .arg("manifest.git")
-            .arg("--relative-to=.")
-            .output()
-            .expect("Failed to run");
-        std::str::from_utf8(&out.stdout)
-            .unwrap()
-            .trim()
-            .to_string()
-            .split_whitespace()
-            .next()
-            .unwrap_or("")
-            .to_string()
-    }
-
-    fn guess_remote() -> String {
-        let manifest_dir = Self::get_repo_manifest_dir();
-        let git_dir = if Self::is_git() || manifest_dir.is_empty() {
-            "."
-        } else {
-            &manifest_dir[..]
-        };
-
-        let remote = Self::get_git_config("remote.origin.url", git_dir);
-        // Only support http for now
-        if !(remote.starts_with("http") || remote.starts_with("ssh")) {
-            return "".to_string();
-        }
-        let parts: Vec<&str> = remote.split('/').collect();
-        // authenticated URLs end in /a/, but other letters seems to be possible as well.
-        if parts.len() > 3 && parts[3].len() == 1 {
-            return parts[..4].join("/");
-        }
-        parts[..3].join("/")
-    }
-
-    fn get_project(url: &str) -> String {
-        let mut project = Self::get_git_config("remote.origin.projectname", ".")
-            .trim_end_matches(".git")
-            .to_string();
-        if project.is_empty() {
-            project = Self::get_git_config("remote.origin.url", ".")
-                .trim_end_matches(".git")
-                .trim_start_matches(url)
-                .trim_start_matches('/')
-                .to_string();
-        }
-        project
     }
 
     fn print_usage(&self) -> ! {
@@ -213,28 +142,20 @@ impl Settings {
         if matches.opt_present("file") {
             self.file = matches.opt_str("file").unwrap();
         }
-
-        if let Some(p) = matches.opt_str("project") {
-            self.project = p;
-        }
-
-        if matches.opt_present("url") {
-            self.base_url = matches.opt_str("url").unwrap();
-        }
     }
 
     fn create_query(&mut self, query: &str) {
         if self.only_open {
             self.query += "status:open ";
         }
-        if !self.project.is_empty() {
-            self.query += format!("project:{} ", self.project).as_str();
+        if !self.repo_info.project_name.is_empty() {
+            self.query += format!("project:{} ", self.repo_info.project_name).as_str();
         }
         self.query += query;
     }
 
     pub fn get_url(&self) -> String {
-        let mut url: String = self.base_url.to_string();
+        let mut url: String = self.repo_info.remote_url.to_string();
 
         if url.starts_with("http") {
             if !url.ends_with('/') {
