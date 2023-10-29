@@ -2,26 +2,22 @@ use getopts::Options;
 use std::env;
 use std::process::{Command, Stdio};
 
-use crate::repo_info::{RepoInfo, RemoteUrl};
+use crate::repo_info::RepoInfo;
 
 pub struct Settings {
     pub method: String,
-    pub file: String,
     pub select_all: bool,
-    query: String,
+    pub query: String,
     debug: bool,
     only_open: bool,
-    http_query_fields: String,
-    ssh_query_flags: String,
     options: getopts::Options,
-    repo_info: RepoInfo,
+    pub repo_info: RepoInfo,
 }
 
 impl Settings {
     pub fn new() -> Self {
         let mut opts = Options::new();
         opts.optflag("h", "help", "Print this menu");
-        opts.optopt("u", "url", "Override the auto-detected url", "URL");
         opts.optflag("c", "closed", "Include closed commits");
         opts.optflag(
             "o",
@@ -30,12 +26,6 @@ impl Settings {
         );
         opts.optflag("a", "all", "pre-select all commits");
         opts.optflag("", "debug", "Print debug information while running");
-        opts.optopt(
-            "f",
-            "file",
-            "Read json data from file instead of Gerrit",
-            "FILE",
-        );
 
         let matches_env = opts
             .parse(
@@ -50,14 +40,10 @@ impl Settings {
 
         let mut s = Self {
             method: "".to_string(),
-            file: "".to_string(),
             query: "limit:200 ".to_string(),
             select_all: false,
             debug: false,
             only_open: true,
-            http_query_fields: "o=CURRENT_REVISION&o=CURRENT_COMMIT&o=CURRENT_FILES".to_string(),
-            ssh_query_flags: "--format=JSON --current-patch-set --files --commit-message
-".to_string(),
             options: opts,
             repo_info: RepoInfo::new(),
         };
@@ -135,9 +121,6 @@ impl Settings {
         if matches.opt_present("debug") {
             self.debug = true;
         }
-        if matches.opt_present("file") {
-            self.file = matches.opt_str("file").unwrap();
-        }
     }
 
     fn create_query(&mut self, query: &str) {
@@ -148,23 +131,5 @@ impl Settings {
             self.query += format!("project:{} ", self.repo_info.project_name).as_str();
         }
         self.query += query;
-    }
-
-    pub fn get_url(&self) -> String {
-        if let RemoteUrl::HTTP(url) = &self.repo_info.remote_url {
-            format!(
-                "{}changes/?q={}&{}",
-                url,
-                &self.query.replace(' ', "+"),
-                &self.http_query_fields
-            )
-        } else if let RemoteUrl::SSH(url) = &self.repo_info.remote_url {
-            format!(
-                "{} gerrit query {} {}",
-                url, &self.ssh_query_flags, &self.query
-            )
-        } else {
-            "".to_string()
-        }
     }
 }

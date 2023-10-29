@@ -1,25 +1,6 @@
 use std::process::{Command, Stdio};
 
-pub enum RemoteUrl {
-    SSH(String),
-    HTTP(String),
-}
-
-impl RemoteUrl {
-    pub fn new(url: &str) -> Self {
-        if url.starts_with("ssh://") {
-            Self::SSH(url.to_string())
-        } else if url.starts_with("http://") || url.starts_with("https://") {
-            if !url.ends_with('/') {
-                Self::HTTP(url.to_string() + "/")
-            } else {
-                Self::HTTP(url.to_string())
-            }
-        } else {
-            panic!("Invalid url");
-        }
-    }
-}
+use crate::remote::RemoteUrl;
 
 #[derive(PartialEq, Eq)]
 pub enum RepoType {

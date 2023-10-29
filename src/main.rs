@@ -1,60 +1,14 @@
 mod commit_info;
+mod remote;
 mod repo_info;
 mod settings;
 
 use commit_info::{CommitInfo, JsonType};
+use remote::RemoteUrl;
 use settings::Settings;
 use skim::prelude::*;
 use std::io::Write;
 use std::process::Command;
-
-fn get_data(s: &Settings) -> String {
-    if s.file.is_empty() {
-        let url = s.get_url();
-        if url.starts_with("http") {
-            let out = Command::new("curl")
-                .arg("--netrc")
-                .arg("--request")
-                .arg("GET")
-                .arg("--url")
-                .arg(url)
-                .arg("--header")
-                .arg("Content-Type: application/json")
-                .output()
-                .expect("Failed to fetch http commit data");
-            // Need to remove the first line as it contains the magic string )]}' to prevent
-            // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
-            std::str::from_utf8(&out.stdout)
-                .unwrap()
-                .split('\n')
-                .skip(1)
-                .collect()
-        // reqwest::blocking::get(s.get_url())
-        //     .unwrap()
-        //     .text()
-        //     .unwrap()
-        //     .split('\n')
-        //     .nth(1)
-        //     .expect("Failed to get commit data")
-        //     .to_string()
-        } else if url.starts_with("ssh") {
-            let out = Command::new("ssh")
-                .args(url.split_whitespace())
-                .output()
-                .expect("Faield to fetch ssh commit data");
-            let mut items = std::str::from_utf8(&out.stdout)
-                .unwrap()
-                .lines()
-                .collect::<Vec<&str>>();
-            items.pop(); // Last element contains stats
-            format!("[{}]", items.join(","))
-        } else {
-            "".to_string()
-        }
-    } else {
-        std::fs::read_to_string(&s.file).expect("Should have been able to read the file")
-    }
-}
 
 fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
     println!("{} the following commit(s) now?", s.method);
@@ -128,13 +82,11 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    let json_type = if s.get_url().starts_with("ssh") {
-        JsonType::SSH
-    } else {
-        JsonType::HTTP
+    let json_type = match s.repo_info.remote_url {
+        RemoteUrl::SSH(_) => JsonType::SSH,
+        RemoteUrl::HTTP(_) => JsonType::HTTP,
     };
-    std::fs::write("output.json", &get_data(&s)).unwrap();
-    json::parse(&get_data(&s))
+    json::parse(&s.repo_info.remote_url.perform_query(&s.query))
         .unwrap()
         .members()
         .cloned()
