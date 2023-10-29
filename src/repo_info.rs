@@ -1,8 +1,24 @@
 use std::process::{Command, Stdio};
 
-pub enum RemoteType {
-    SSH,
-    HTTPS,
+pub enum RemoteUrl {
+    SSH(String),
+    HTTP(String),
+}
+
+impl RemoteUrl {
+    pub fn new(url: &str) -> Self {
+        if url.starts_with("ssh://") {
+            Self::SSH(url.to_string())
+        } else if url.starts_with("http://") || url.starts_with("https://") {
+            if !url.ends_with('/') {
+                Self::HTTP(url.to_string() + "/")
+            } else {
+                Self::HTTP(url.to_string())
+            }
+        } else {
+            panic!("Invalid url");
+        }
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -13,8 +29,7 @@ pub enum RepoType {
 }
 
 pub struct RepoInfo {
-    pub remote_type: RemoteType,
-    pub remote_url: String,
+    pub remote_url: RemoteUrl,
     pub repo_type: RepoType,
     pub project_name: String,
 }
@@ -23,16 +38,10 @@ impl RepoInfo {
     pub fn new() -> Self {
         let repo_type = Self::get_repo_type();
         let remote_url = Self::guess_remote(&repo_type);
-        let remote_type = if remote_url.starts_with("ssh://") {
-            RemoteType::SSH
-        } else {
-            RemoteType::HTTPS
-        };
         let project_name = Self::get_project_name(&remote_url);
 
         return RepoInfo {
-            remote_type,
-            remote_url,
+            remote_url: RemoteUrl::new(&remote_url),
             repo_type,
             project_name,
         };

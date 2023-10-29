@@ -1,5 +1,5 @@
-mod repo_info;
 mod commit_info;
+mod repo_info;
 mod settings;
 
 use commit_info::{CommitInfo, JsonType};

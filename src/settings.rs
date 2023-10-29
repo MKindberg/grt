@@ -2,7 +2,7 @@ use getopts::Options;
 use std::env;
 use std::process::{Command, Stdio};
 
-use crate::repo_info::RepoInfo;
+use crate::repo_info::{RepoInfo, RemoteUrl};
 
 pub struct Settings {
     pub method: String,
@@ -91,10 +91,6 @@ impl Settings {
             );
             println!("Query: '{}'", s.query);
         }
-        if s.repo_info.remote_url.is_empty() && s.file.is_empty() {
-            println!("Couldn't guess Gerrit url, must provide a url through either $GERRIT_URL or the -u option");
-            std::process::exit(1);
-        }
 
         s
     }
@@ -155,19 +151,14 @@ impl Settings {
     }
 
     pub fn get_url(&self) -> String {
-        let mut url: String = self.repo_info.remote_url.to_string();
-
-        if url.starts_with("http") {
-            if !url.ends_with('/') {
-                url += "/";
-            }
+        if let RemoteUrl::HTTP(url) = &self.repo_info.remote_url {
             format!(
                 "{}changes/?q={}&{}",
                 url,
                 &self.query.replace(' ', "+"),
                 &self.http_query_fields
             )
-        } else if url.starts_with("ssh") {
+        } else if let RemoteUrl::SSH(url) = &self.repo_info.remote_url {
             format!(
                 "{} gerrit query {} {}",
                 url, &self.ssh_query_flags, &self.query
