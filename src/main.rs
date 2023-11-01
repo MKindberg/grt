@@ -4,14 +4,19 @@ mod repo_info;
 mod settings;
 
 use commit_info::{CommitInfo, JsonType};
+use lazy_static::lazy_static;
 use remote::RemoteUrl;
 use settings::Settings;
 use skim::prelude::*;
 use std::io::Write;
 use std::process::Command;
 
-fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
-    println!("{} the following commit(s) now?", s.method);
+lazy_static! {
+    static ref SETTINGS: Settings = Settings::new();
+}
+
+fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
+    println!("{} the following commit(s) now?", SETTINGS.method);
     for i in selected_items {
         println!("* {}", i.text());
     }
@@ -26,7 +31,7 @@ fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
                 format!(
                     "git fetch origin {} && git {} FETCH_HEAD",
                     i.output(),
-                    s.method.to_lowercase()
+                    SETTINGS.method.to_lowercase()
                 )
             })
             .collect()
@@ -37,7 +42,7 @@ fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
                 format!(
                     "repo download {} {}",
                     i.output(),
-                    if s.method.to_lowercase() == "cherry-pick" {
+                    if SETTINGS.method.to_lowercase() == "cherry-pick" {
                         "--cherry-pick"
                     } else {
                         ""
@@ -64,9 +69,7 @@ fn execute_command(s: &Settings, selected_items: &Vec<Arc<dyn SkimItem>>) {
 }
 
 fn main() {
-    let s = Settings::new();
-
-    let selector = if s.select_all {
+    let selector = if SETTINGS.select_all {
         DefaultSkimSelector::default().regex(".*")
     } else {
         DefaultSkimSelector::default().regex("")
@@ -82,11 +85,11 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    let json_type = match s.repo_info.remote_url {
+    let json_type = match SETTINGS.repo_info.remote_url {
         RemoteUrl::SSH(_) => JsonType::SSH,
         RemoteUrl::HTTP(_) => JsonType::HTTP,
     };
-    json::parse(&s.repo_info.remote_url.perform_query(&s.query))
+    json::parse(&SETTINGS.repo_info.remote_url.perform_query(&SETTINGS.query))
         .unwrap()
         .members()
         .cloned()
@@ -101,5 +104,5 @@ fn main() {
     if res.final_event == Event::EvActAbort {
         std::process::exit(1);
     }
-    execute_command(&s, &res.selected_items)
+    execute_command(&res.selected_items)
 }
