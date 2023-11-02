@@ -3,11 +3,11 @@ mod remote;
 mod repo_info;
 mod settings;
 
-use commit_info::{CommitInfo, JsonType};
+use commit_info::CommitInfo;
 use lazy_static::lazy_static;
-use remote::RemoteUrl;
 use settings::Settings;
 use skim::prelude::*;
+use std::collections::HashSet;
 use std::io::Write;
 use std::process::Command;
 
@@ -16,32 +16,64 @@ lazy_static! {
 }
 
 fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
+    let mut line = String::new();
+    let mut topics: Vec<&str> = Vec::new();
+    let mut refs: HashSet<(String, String)> = HashSet::new();
+    for item in selected_items {
+        let commit = (**item)
+            .as_any()
+            .downcast_ref::<CommitInfo>()
+            .expect("Could not cast to CommitInfo");
+        if let Some(t) = &commit.topic {
+            topics.push(t);
+        }
+        refs.insert((commit.get_title(), commit.get_reference()));
+    }
+    if !topics.is_empty() {
+        println!("Your selected commits are part of the following topic(s):");
+        for t in &topics {
+            println!("* {}", t);
+        }
+        println!("Would you like to download those commits as well? (y/N)");
+        std::io::stdin()
+            .read_line(&mut line)
+            .expect("Could not read user input");
+        if ["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
+            for t in &topics {
+                let commits = SETTINGS
+                    .repo_info
+                    .remote_url
+                    .perform_query(&format!("status:open topic:{}", t));
+                for c in &commits {
+                    refs.insert((c.get_title(), c.get_reference()));
+                }
+            }
+        }
+        line.clear();
+    }
     println!("{} the following commit(s) now?", SETTINGS.method);
-    for i in selected_items {
-        println!("* {}", i.text());
+    for (t, _) in &refs {
+        println!("* {}", t);
     }
     print!("(y/N) ");
     std::io::stdout().flush().unwrap();
 
-    let mut line = String::new();
     let commands: Vec<String> = if Settings::is_git() {
-        selected_items
-            .iter()
-            .map(|i| {
+        refs.iter()
+            .map(|(_, i)| {
                 format!(
                     "git fetch origin {} && git {} FETCH_HEAD",
-                    i.output(),
+                    i,
                     SETTINGS.method.to_lowercase()
                 )
             })
             .collect()
     } else {
-        selected_items
-            .iter()
-            .map(|i| {
+        refs.iter()
+            .map(|(_, i)| {
                 format!(
                     "repo download {} {}",
-                    i.output(),
+                    i,
                     if SETTINGS.method.to_lowercase() == "cherry-pick" {
                         "--cherry-pick"
                     } else {
@@ -85,15 +117,12 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    let json_type = match SETTINGS.repo_info.remote_url {
-        RemoteUrl::SSH(_) => JsonType::SSH,
-        RemoteUrl::HTTP(_) => JsonType::HTTP,
-    };
-    json::parse(&SETTINGS.repo_info.remote_url.perform_query(&SETTINGS.query))
-        .unwrap()
-        .members()
+    SETTINGS
+        .repo_info
+        .remote_url
+        .perform_query(&SETTINGS.query)
+        .iter()
         .cloned()
-        .map(|data| CommitInfo::from_json(&json_type, &data))
         .map(Arc::new)
         .for_each(|x| {
             let _ = tx_item.send(x);

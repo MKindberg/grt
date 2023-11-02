@@ -1,17 +1,17 @@
 use crate::settings::Settings;
 use skim::prelude::*;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CommitInfo {
     is_git: bool,
     project: String,
-    subject: String,
+    pub subject: String,
     message: String,
     author: String,
     branch: String,
     reference: String,
     files: Vec<String>,
-    topic: Option<String>,
+    pub topic: Option<String>,
 }
 
 #[derive(Debug)]
