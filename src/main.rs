@@ -58,7 +58,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
     print!("(y/N) ");
     std::io::stdout().flush().unwrap();
 
-    let commands: Vec<String> = if Settings::is_git() {
+    let commands: Vec<String> = if topics.is_empty() && Settings::is_git() {
         refs.iter()
             .map(|(_, i)| {
                 format!(
