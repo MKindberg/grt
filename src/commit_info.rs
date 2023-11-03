@@ -63,13 +63,19 @@ impl CommitInfo {
             + &self.files.join("\n");
     }
 
+    pub fn get_git_reference(&self) -> String {
+        self.reference.clone()
+    }
+    pub fn get_repo_reference(&self) -> String {
+        self.project.clone()
+            + ".git "
+            + &self.reference.split('/').collect::<Vec<&str>>()[3..].join("/")
+    }
     pub fn get_reference(&self) -> String {
         return if self.is_git {
-            self.reference.clone()
+            self.get_git_reference()
         } else {
-            self.project.clone()
-                + ".git "
-                + &self.reference.split('/').collect::<Vec<&str>>()[3..].join("/")
+            self.get_repo_reference()
         };
     }
 

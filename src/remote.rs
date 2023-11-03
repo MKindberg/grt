@@ -1,6 +1,9 @@
 use std::process::Command;
 
-use crate::commit_info::{CommitInfo, JsonType};
+use crate::{
+    commit_info::{CommitInfo, JsonType},
+    SETTINGS,
+};
 
 pub enum RemoteUrl {
     SSH(String),
@@ -39,6 +42,9 @@ impl RemoteUrl {
         let url = self.full_url(query);
         let (json_type, commit_data) = match self {
             Self::SSH(_) => {
+                if SETTINGS.debug {
+                    println!("Performing query: ssh {}", url);
+                }
                 let out = Command::new("ssh")
                     .args(url.split_whitespace())
                     .output()
@@ -60,6 +66,14 @@ impl RemoteUrl {
                     .arg(url)
                     .arg("--header")
                     .arg("Content-Type: application/json");
+                if SETTINGS.debug {
+                    println!(
+                        "Performing query: {}",
+                        full_cmd
+                            .get_args()
+                            .fold(String::new(), |acc, s| acc + s.to_str().unwrap())
+                    );
+                }
                 let out = full_cmd.output().expect("Failed to fetch http commit data");
                 // Need to remove the first line as it contains the magic string )]}' to prevent
                 // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)

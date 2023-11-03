@@ -8,7 +8,7 @@ pub struct Settings {
     pub method: String,
     pub select_all: bool,
     pub query: String,
-    debug: bool,
+    pub debug: bool,
     only_open: bool,
     options: getopts::Options,
     pub repo_info: RepoInfo,

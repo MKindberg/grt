@@ -18,7 +18,7 @@ lazy_static! {
 fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
     let mut line = String::new();
     let mut topics: Vec<&str> = Vec::new();
-    let mut refs: HashSet<(String, String)> = HashSet::new();
+    let mut refs: HashSet<(String, String, String)> = HashSet::new();
     for item in selected_items {
         let commit = (**item)
             .as_any()
@@ -27,7 +27,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
         if let Some(t) = &commit.topic {
             topics.push(t);
         }
-        refs.insert((commit.get_title(), commit.get_reference()));
+        refs.insert((commit.get_title(), commit.get_git_reference(), commit.get_repo_reference()));
     }
     if !topics.is_empty() {
         println!("Your selected commits are part of the following topic(s):");
@@ -45,14 +45,14 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
                     .remote_url
                     .perform_query(&format!("status:open topic:{}", t));
                 for c in &commits {
-                    refs.insert((c.get_title(), c.get_reference()));
+                    refs.insert((c.get_title(), c.get_git_reference(), c.get_repo_reference()));
                 }
             }
         }
         line.clear();
     }
     println!("{} the following commit(s) now?", SETTINGS.method);
-    for (t, _) in &refs {
+    for (t, _, _) in &refs {
         println!("* {}", t);
     }
     print!("(y/N) ");
@@ -60,7 +60,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
 
     let commands: Vec<String> = if topics.is_empty() && Settings::is_git() {
         refs.iter()
-            .map(|(_, i)| {
+            .map(|(_, i, _)| {
                 format!(
                     "git fetch origin {} && git {} FETCH_HEAD",
                     i,
@@ -70,7 +70,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
             .collect()
     } else {
         refs.iter()
-            .map(|(_, i)| {
+            .map(|(_, _, i)| {
                 format!(
                     "repo download {} {}",
                     i,

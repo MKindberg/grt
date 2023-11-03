@@ -90,7 +90,7 @@ impl RepoInfo {
 
     fn get_repo_type() -> RepoType {
         let is_repo = Command::new("repo")
-            .arg("status")
+            .arg("--show-toplevel")
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
