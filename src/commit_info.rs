@@ -1,9 +1,8 @@
-use crate::settings::Settings;
+use crate::{SETTINGS, repo_info::RepoType};
 use skim::prelude::*;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CommitInfo {
-    is_git: bool,
     project: String,
     pub subject: String,
     message: String,
@@ -23,7 +22,6 @@ pub enum JsonType {
 #[allow(clippy::too_many_arguments)]
 impl CommitInfo {
     fn new(
-        is_git: bool,
         project: &str,
         subject: &str,
         message: &str,
@@ -34,7 +32,6 @@ impl CommitInfo {
         topic: Option<&str>,
     ) -> Self {
         CommitInfo {
-            is_git,
             project: project.to_string(),
             subject: subject.to_string(),
             message: message.to_string(),
@@ -46,7 +43,7 @@ impl CommitInfo {
         }
     }
     pub fn get_title(&self) -> String {
-        return if self.is_git {
+        return if SETTINGS.repo_info.repo_type == RepoType::Git {
             "".to_string()
         } else {
             self.project.clone() + " - "
@@ -72,7 +69,7 @@ impl CommitInfo {
             + &self.reference.split('/').collect::<Vec<&str>>()[3..].join("/")
     }
     pub fn get_reference(&self) -> String {
-        return if self.is_git {
+        return if SETTINGS.repo_info.repo_type == RepoType::Git {
             self.get_git_reference()
         } else {
             self.get_repo_reference()
@@ -115,7 +112,6 @@ impl CommitInfo {
 
         let topic = data["topic"].as_str();
         Self::new(
-            Settings::is_git(),
             project,
             subject,
             message,
@@ -159,7 +155,6 @@ impl CommitInfo {
 
         let topic = data["topic"].as_str();
         Self::new(
-            Settings::is_git(),
             project,
             subject,
             message,
@@ -214,7 +209,6 @@ mod tests {
         assert_eq!(
             parsed_data[0],
             CommitInfo::new(
-                true,
                 "dummy",
                 "follow-up commit",
                 "follow-up commit\n\nChange-Id: I95eda6180426529e4c959c60a7a575751a00fc20\n",
@@ -228,7 +222,6 @@ mod tests {
         assert_eq!(
             parsed_data[1],
             CommitInfo::new(
-                true,
                 "dummy",
                 "Second commit",
                 "Second commit\n\nChange-Id: Ie61179aba5e7ef87541b6dc8ec26fe58403b336e\n",

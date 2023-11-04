@@ -6,7 +6,6 @@ use crate::remote::RemoteUrl;
 pub enum RepoType {
     Git,
     Repo,
-    GitInRepo,
 }
 
 pub struct RepoInfo {
@@ -105,9 +104,8 @@ impl RepoInfo {
             .expect("Failed to run 'git'")
             .success();
         return match (is_repo, is_git) {
-            (true, true) => RepoType::GitInRepo,
-            (true, false) => RepoType::Repo,
-            (false, true) => RepoType::Git,
+            (true, _) => RepoType::Repo,
+            (_, true) => RepoType::Git,
             (false, false) => panic!("Must be run in a repo"),
         };
     }

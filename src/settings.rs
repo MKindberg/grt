@@ -1,6 +1,5 @@
 use getopts::Options;
 use std::env;
-use std::process::{Command, Stdio};
 
 use crate::repo_info::RepoInfo;
 
@@ -79,17 +78,6 @@ impl Settings {
         }
 
         s
-    }
-
-    pub fn is_git() -> bool {
-        Command::new("git")
-            .arg("rev-parse")
-            .arg("--is-inside-work-tree")
-            .stdout(Stdio::null())
-            .stderr(Stdio::null())
-            .status()
-            .expect("Failed to run")
-            .success()
     }
 
     fn print_usage(&self) -> ! {
