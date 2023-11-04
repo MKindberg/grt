@@ -1,5 +1,7 @@
 use std::process::Command;
 
+use json::JsonValue;
+
 use crate::SETTINGS;
 
 pub enum RemoteUrl {
@@ -91,6 +93,6 @@ impl RemoteUrl {
                 //     .to_string()
             }
         };
-        json::parse(&commit_data).unwrap()
+        json::parse(&commit_data).unwrap_or(JsonValue::new_object())
     }
 }
