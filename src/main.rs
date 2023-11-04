@@ -107,17 +107,17 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
 }
 
 fn main() {
-    let selector = if SETTINGS.select_all {
-        DefaultSkimSelector::default().regex(".*")
+    let selector: Option<std::rc::Rc<(dyn skim::Selector + 'static)>> = if SETTINGS.select_all {
+        Some(Rc::new(DefaultSkimSelector::default().regex(".*")))
     } else {
-        DefaultSkimSelector::default().regex("")
+        None
     };
     let options = SkimOptionsBuilder::default()
         .height(Some("50%"))
         .multi(true)
         .select1(true)
         .exit0(true)
-        .selector(Some(Rc::new(selector)))
+        .selector(selector)
         .preview(Some("")) // preview should be specified to enable preview window
         .build()
         .unwrap();
