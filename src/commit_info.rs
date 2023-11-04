@@ -1,4 +1,4 @@
-use crate::{SETTINGS, repo_info::RepoType};
+use crate::{remote::RemoteUrl, repo_info::RepoType, SETTINGS};
 use skim::prelude::*;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -11,12 +11,6 @@ pub struct CommitInfo {
     reference: String,
     files: Vec<String>,
     pub topic: Option<String>,
-}
-
-#[derive(Debug)]
-pub enum JsonType {
-    SSH,
-    HTTP,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -42,6 +36,16 @@ impl CommitInfo {
             topic: topic.map(|s| s.to_string()),
         }
     }
+
+    pub fn parse_json<'a>(
+        commit_data: &'a json::JsonValue,
+    ) -> impl Iterator<Item = CommitInfo> + 'a {
+        commit_data
+            .members()
+            .cloned()
+            .map(|data| CommitInfo::from_json(&data))
+    }
+
     pub fn get_title(&self) -> String {
         return if SETTINGS.repo_info.repo_type == RepoType::Git {
             "".to_string()
@@ -112,14 +116,7 @@ impl CommitInfo {
 
         let topic = data["topic"].as_str();
         Self::new(
-            project,
-            subject,
-            message,
-            author,
-            branch,
-            reference,
-            files,
-            topic,
+            project, subject, message, author, branch, reference, files, topic,
         )
     }
 
@@ -155,20 +152,13 @@ impl CommitInfo {
 
         let topic = data["topic"].as_str();
         Self::new(
-            project,
-            subject,
-            message,
-            author,
-            branch,
-            reference,
-            files,
-            topic,
+            project, subject, message, author, branch, reference, files, topic,
         )
     }
-    pub fn from_json(json_type: &JsonType, data: &json::JsonValue) -> Self {
-        match json_type {
-            JsonType::SSH => Self::from_ssh_json(data),
-            JsonType::HTTP => Self::from_http_json(data),
+    pub fn from_json(data: &json::JsonValue) -> Self {
+        match SETTINGS.repo_info.remote_url {
+            RemoteUrl::SSH(_) => Self::from_ssh_json(data),
+            RemoteUrl::HTTP(_) => Self::from_http_json(data),
         }
     }
 }
@@ -203,7 +193,7 @@ mod tests {
             .unwrap()
             .members()
             .cloned()
-            .map(|data| CommitInfo::from_json(&JsonType::SSH, &data))
+            .map(|data| CommitInfo::from_json(&data))
             .collect::<Vec<CommitInfo>>();
         assert_eq!(parsed_data.len(), 2);
         assert_eq!(

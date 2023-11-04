@@ -1,9 +1,6 @@
 use std::process::Command;
 
-use crate::{
-    commit_info::{CommitInfo, JsonType},
-    SETTINGS,
-};
+use crate::SETTINGS;
 
 pub enum RemoteUrl {
     SSH(String),
@@ -38,9 +35,9 @@ impl RemoteUrl {
         }
     }
 
-    pub fn perform_query(&self, query: &str) -> Vec<CommitInfo> {
+    pub fn perform_query(&self, query: &str) -> json::JsonValue {
         let url = self.full_url(query);
-        let (json_type, commit_data) = match self {
+        let commit_data = match self {
             Self::SSH(_) => {
                 if SETTINGS.debug {
                     println!("Performing query: ssh {}", url);
@@ -54,7 +51,7 @@ impl RemoteUrl {
                     .lines()
                     .collect::<Vec<&str>>();
                 items.pop(); // Last element contains stats
-                (JsonType::SSH, format!("[{}]", items.join(",")))
+                format!("[{}]", items.join(","))
             }
             Self::HTTP(_) => {
                 let mut cmd = Command::new("curl");
@@ -77,14 +74,13 @@ impl RemoteUrl {
                 let out = full_cmd.output().expect("Failed to fetch http commit data");
                 // Need to remove the first line as it contains the magic string )]}' to prevent
                 // Cross Site Script Inclusion attacks (https://gerrit.onap.org/r/Documentation/rest-api.html#output)
-                (
-                    JsonType::HTTP,
-                    std::str::from_utf8(&out.stdout)
-                        .unwrap()
-                        .split('\n')
-                        .skip(1)
-                        .collect(),
-                )
+
+                std::str::from_utf8(&out.stdout)
+                    .unwrap()
+                    .split('\n')
+                    .skip(1)
+                    .collect()
+
                 // reqwest::blocking::get(s.get_url())
                 //     .unwrap()
                 //     .text()
@@ -95,11 +91,6 @@ impl RemoteUrl {
                 //     .to_string()
             }
         };
-        json::parse(&commit_data)
-            .unwrap()
-            .members()
-            .cloned()
-            .map(|data| CommitInfo::from_json(&json_type, &data))
-            .collect()
+        json::parse(&commit_data).unwrap()
     }
 }

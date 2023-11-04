@@ -50,7 +50,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
                     .repo_info
                     .remote_url
                     .perform_query(&format!("status:open topic:{}", t));
-                for c in &commits {
+                for c in CommitInfo::parse_json(&commits) {
                     refs.insert((c.get_title(), c.get_repo_reference()));
                 }
             }
@@ -123,12 +123,8 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    SETTINGS
-        .repo_info
-        .remote_url
-        .perform_query(&SETTINGS.query)
-        .iter()
-        .cloned()
+    let commit_info = SETTINGS.repo_info.remote_url.perform_query(&SETTINGS.query);
+    CommitInfo::parse_json(&commit_info)
         .map(Arc::new)
         .for_each(|x| {
             let _ = tx_item.send(x);
