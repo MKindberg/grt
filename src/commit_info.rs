@@ -1,4 +1,4 @@
-use crate::{remote::RemoteUrl, repo_info::RepoType, SETTINGS};
+use crate::{remote::RemoteUrl, repo_info::RepoType, REPO_INFO};
 use skim::prelude::*;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -47,7 +47,7 @@ impl CommitInfo {
     }
 
     pub fn get_title(&self) -> String {
-        return if SETTINGS.repo_info.repo_type == RepoType::Git {
+        return if REPO_INFO.repo_type == RepoType::Git {
             "".to_string()
         } else {
             self.project.clone() + " - "
@@ -73,7 +73,7 @@ impl CommitInfo {
             + &self.reference.split('/').collect::<Vec<&str>>()[3..].join("/")
     }
     pub fn get_reference(&self) -> String {
-        return if SETTINGS.repo_info.repo_type == RepoType::Git {
+        return if REPO_INFO.repo_type == RepoType::Git {
             self.get_git_reference()
         } else {
             self.get_repo_reference()
@@ -156,7 +156,7 @@ impl CommitInfo {
         )
     }
     pub fn from_json(data: &json::JsonValue) -> Self {
-        match SETTINGS.repo_info.remote_url {
+        match REPO_INFO.remote_url {
             RemoteUrl::SSH(_) => Self::from_ssh_json(data),
             RemoteUrl::HTTP(_) => Self::from_http_json(data),
         }

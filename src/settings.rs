@@ -1,7 +1,7 @@
 use getopts::Options;
 use std::env;
 
-use crate::repo_info::RepoInfo;
+use crate::REPO_INFO;
 
 pub struct Settings {
     pub method: String,
@@ -10,7 +10,6 @@ pub struct Settings {
     pub debug: bool,
     only_open: bool,
     options: getopts::Options,
-    pub repo_info: RepoInfo,
 }
 
 impl Settings {
@@ -44,7 +43,6 @@ impl Settings {
             debug: false,
             only_open: true,
             options: opts,
-            repo_info: RepoInfo::new(),
         };
 
         s.parse_args(&matches_env);
@@ -115,8 +113,8 @@ impl Settings {
         if self.only_open {
             self.query += "status:open ";
         }
-        if !self.repo_info.project_name.is_empty() {
-            self.query += format!("project:{} ", self.repo_info.project_name).as_str();
+        if !REPO_INFO.project_name.is_empty() {
+            self.query += format!("project:{} ", REPO_INFO.project_name).as_str();
         }
         self.query += query;
     }

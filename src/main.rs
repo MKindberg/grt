@@ -5,6 +5,7 @@ mod settings;
 
 use commit_info::CommitInfo;
 use lazy_static::lazy_static;
+use repo_info::RepoInfo;
 use settings::Settings;
 use skim::prelude::*;
 use std::collections::HashSet;
@@ -15,6 +16,7 @@ use crate::repo_info::RepoType;
 
 lazy_static! {
     static ref SETTINGS: Settings = Settings::new();
+    static ref REPO_INFO: RepoInfo = RepoInfo::new();
 }
 
 fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
@@ -29,7 +31,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
         if let Some(t) = &commit.topic {
             topics.push(t);
         }
-        if SETTINGS.repo_info.repo_type == RepoType::Git {
+        if REPO_INFO.repo_type == RepoType::Git {
             refs.insert((commit.get_title(), commit.get_git_reference()));
         } else {
             refs.insert((commit.get_title(), commit.get_repo_reference()));
@@ -46,8 +48,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
             .expect("Could not read user input");
         if ["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
             for t in &topics {
-                let commits = SETTINGS
-                    .repo_info
+                let commits = REPO_INFO
                     .remote_url
                     .perform_query(&format!("status:open topic:{}", t));
                 for c in CommitInfo::parse_json(&commits) {
@@ -64,7 +65,7 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
     print!("(y/N) ");
     std::io::stdout().flush().unwrap();
 
-    let commands: Vec<String> = if SETTINGS.repo_info.repo_type == RepoType::Git {
+    let commands: Vec<String> = if REPO_INFO.repo_type == RepoType::Git {
         refs.iter()
             .map(|(_, i)| {
                 format!(
@@ -123,7 +124,7 @@ fn main() {
         .unwrap();
 
     let (tx_item, rx_item): (SkimItemSender, SkimItemReceiver) = unbounded();
-    let commit_info = SETTINGS.repo_info.remote_url.perform_query(&SETTINGS.query);
+    let commit_info = REPO_INFO.remote_url.perform_query(&SETTINGS.query);
     CommitInfo::parse_json(&commit_info)
         .map(Arc::new)
         .for_each(|x| {
