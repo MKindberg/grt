@@ -8,6 +8,7 @@ pub struct Settings {
     pub select_all: bool,
     pub query: String,
     pub debug: bool,
+    pub show_parent: bool,
     only_open: bool,
     options: getopts::Options,
 }
@@ -23,6 +24,9 @@ impl Settings {
             "Don't include closed commits (default, will override -c if set)",
         );
         opts.optflag("a", "all", "pre-select all commits");
+        opts.optflag("p",
+            "show-parent",
+            "Show info about parent commit in preview even in ssh (This will lead to additional queries)");
         opts.optflag("", "debug", "Print debug information while running");
 
         let matches_env = opts
@@ -42,6 +46,7 @@ impl Settings {
             select_all: false,
             debug: false,
             only_open: true,
+            show_parent: false,
             options: opts,
         };
 
@@ -103,6 +108,9 @@ impl Settings {
 
         if matches.opt_present("all") {
             self.select_all = true;
+        }
+        if matches.opt_present("show-parent") {
+            self.show_parent = true;
         }
         if matches.opt_present("debug") {
             self.debug = true;

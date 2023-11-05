@@ -17,8 +17,8 @@ Options:
 | -u URL | --url URL  |     Override the auto-detected gerrit url |
 | -c | --closed     |   Include closed commits|
 | -o | --open       |   Don't include closed commits (default, will override -c if set)|
+| -p | --show-parent | Show info about parent commit in preview even in ssh (This will lead to additional queries)
 |   | --debug      |   Print debug information while running|
-|-f FILE | --file FILE  |   Read json data from file instead of Gerrit|
 
 The options can be set either on command line or through
 the env var GRT_ARGS, anything set on command line will

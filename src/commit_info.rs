@@ -1,4 +1,4 @@
-use crate::{remote::RemoteUrl, repo_info::RepoType, REPO_INFO};
+use crate::{remote::RemoteUrl, repo_info::RepoType, REPO_INFO, SETTINGS};
 use skim::prelude::*;
 
 #[derive(Debug, PartialEq, Eq, Clone)]
@@ -11,6 +11,7 @@ pub struct CommitInfo {
     reference: String,
     files: Vec<String>,
     pub topic: Option<String>,
+    parent: (String, String),
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -24,6 +25,7 @@ impl CommitInfo {
         reference: &str,
         files: Vec<String>,
         topic: Option<&str>,
+        parent_subject: (&str, &str),
     ) -> Self {
         CommitInfo {
             project: project.to_string(),
@@ -34,6 +36,7 @@ impl CommitInfo {
             reference: reference.to_string(),
             files,
             topic: topic.map(|s| s.to_string()),
+            parent: (parent_subject.0.to_string(), parent_subject.1.to_string()),
         }
     }
 
@@ -57,11 +60,34 @@ impl CommitInfo {
     }
 
     pub fn get_body(&self) -> String {
-        return self.message.clone()
-            + "\n---\n\nBranch: "
-            + &self.branch
-            + "\n\n"
-            + &self.files.join("\n");
+        let parent_str = match (SETTINGS.show_parent, self.parent.0.as_str(), self.parent.1.as_str()) {
+            (_, "", _) => "".to_string(),
+            (false, _, "") => "".to_string(),
+            (true, hash, "") => {
+                let parent_commit = REPO_INFO.remote_url.perform_query(hash);
+                "\nParent: ".to_string() + parent_commit[0]["commitMessage"].as_str().unwrap_or("")
+            },
+            (_, _, parent) => "\nParent: ".to_string() + parent,
+        };
+
+        return format!(
+            "
+{}
+--
+
+Branch: {}{}
+
+{}",
+            &self.message,
+            &self.branch,
+            &parent_str,
+            &self.files.join("\n")
+        );
+        // return self.message.clone()
+        //     + "\n---\n\nBranch: "
+        //     + &self.branch
+        //     + "\n\n"
+        //     + &self.files.join("\n");
     }
 
     pub fn get_git_reference(&self) -> String {
@@ -115,8 +141,20 @@ impl CommitInfo {
         }
 
         let topic = data["topic"].as_str();
+
+        let parent_hash = data["currentPatchSet"]["parents"][0]
+            .as_str()
+            .unwrap_or("");
         Self::new(
-            project, subject, message, author, branch, reference, files, topic,
+            project,
+            subject,
+            message,
+            author,
+            branch,
+            reference,
+            files,
+            topic,
+            (parent_hash, ""),
         )
     }
 
@@ -133,7 +171,7 @@ impl CommitInfo {
             .expect("Failed to find commit author");
         let message = data["revisions"][current_revision]["commit"]["message"]
             .as_str()
-            .expect("Failed to find commit message");
+            .expect("Failed to find parent subject");
         let reference = data["revisions"][current_revision]["ref"]
             .as_str()
             .expect("Failed to find ref");
@@ -151,8 +189,22 @@ impl CommitInfo {
         }
 
         let topic = data["topic"].as_str();
+        let parent_hash = data["revisions"][current_revision]["commit"]["parents"][0]["commit"]
+            .as_str()
+            .unwrap_or("");
+        let parent_subject = data["revisions"][current_revision]["commit"]["parents"][0]["subject"]
+            .as_str()
+            .unwrap_or("");
         Self::new(
-            project, subject, message, author, branch, reference, files, topic,
+            project,
+            subject,
+            message,
+            author,
+            branch,
+            reference,
+            files,
+            topic,
+            (parent_hash, parent_subject),
         )
     }
     pub fn from_json(data: &json::JsonValue) -> Self {
@@ -207,6 +259,7 @@ mod tests {
                 "refs/changes/41/41/1",
                 vec![],
                 None,
+                ("", ""),
             )
         );
         assert_eq!(
@@ -220,6 +273,7 @@ mod tests {
                 "refs/changes/02/2/2",
                 vec!["A README-md +1 -0".to_string()],
                 None,
+                ("", ""),
             )
         );
     }
