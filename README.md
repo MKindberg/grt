@@ -1,6 +1,8 @@
 # grt
 
-A cli for searching Gerrit and use fuzzy finding to select a commit to checkout or cherry-pick.
+A cli for searching Gerrit and use fuzzy finding to select commits to checkout or cherry-pick.
+
+![](https://github.com/MKindberg/grt/assets/6180175/b3545488-0092-401b-985d-1b5e888d1243)
 
 ## Usage
 
