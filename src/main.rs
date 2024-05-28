@@ -19,6 +19,32 @@ lazy_static! {
     static ref REPO_INFO: RepoInfo = RepoInfo::new();
 }
 
+struct Commit {
+    title: String,
+    command: String,
+}
+
+impl Commit {
+    fn new(title: String, command: String) -> Commit {
+        Commit { title, command }
+    }
+    fn execute(&self) -> bool {
+        let out = Command::new("sh")
+            .arg("-c")
+            .arg(&self.command)
+            .output()
+            .expect("Failed to run");
+        if out.status.success() {
+            println!("{}: Ok", self.title);
+        } else {
+            println!("{}: Failed", self.title);
+            //println!("{}", std::str::from_utf8(&out.stderr).unwrap());
+            //println!("{}", std::str::from_utf8(&out.stdout).unwrap());
+        }
+        return out.status.success();
+    }
+}
+
 fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
     let mut line = String::new();
     let mut topics: Vec<&str> = Vec::new();
@@ -65,44 +91,61 @@ fn execute_command(selected_items: &Vec<Arc<dyn SkimItem>>) {
     print!("(y/N) ");
     std::io::stdout().flush().unwrap();
 
-    let commands: Vec<String> = if REPO_INFO.repo_type == RepoType::Git {
+    let mut commands: Vec<Commit> = if REPO_INFO.repo_type == RepoType::Git {
         refs.iter()
-            .map(|(_, i)| {
-                format!(
-                    "git fetch origin {} && git {} FETCH_HEAD",
-                    i,
-                    SETTINGS.method.to_lowercase()
+            .map(|(t, i)| {
+                Commit::new(
+                    t.to_string(),
+                    format!(
+                        "git fetch origin {} && git {} FETCH_HEAD",
+                        i,
+                        SETTINGS.method.to_lowercase()
+                    ),
                 )
             })
             .collect()
     } else {
         refs.iter()
-            .map(|(_, i)| {
-                format!(
-                    "repo download {} {}",
-                    i,
-                    if SETTINGS.method.to_lowercase() == "cherry-pick" {
-                        "--cherry-pick"
-                    } else {
-                        ""
-                    }
+            .map(|(t, i)| {
+                Commit::new(
+                    t.to_string(),
+                    format!(
+                        "repo download {} {}",
+                        i,
+                        if SETTINGS.method.to_lowercase() == "cherry-pick" {
+                            "--cherry-pick"
+                        } else {
+                            ""
+                        }
+                    ),
                 )
             })
             .collect()
     };
-    let command = commands.join(" && ");
     std::io::stdin()
         .read_line(&mut line)
         .expect("Could not read user input");
     if ["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
-        let out = Command::new("sh")
-            .arg("-c")
-            .arg(command)
-            .output()
-            .expect("Failed to run");
-        println!("{}", std::str::from_utf8(&out.stderr).unwrap());
-        println!("{}", std::str::from_utf8(&out.stdout).unwrap());
-    } else {
+        println!();
+        while commands.len() > 0 {
+            let c = commands.pop().unwrap();
+            if !c.execute() && commands.len() > 0 {
+                println!("Do you want to continue? (y/N)");
+                std::io::stdin()
+                    .read_line(&mut line)
+                    .expect("Could not read user input");
+                if !["y", "yes"].contains(&line.trim().to_lowercase().as_str()) {
+                    break;
+                }
+            }
+        }
+    }
+    if commands.len() > 0 {
+        let command = commands
+            .iter()
+            .map(|c| c.command.clone())
+            .collect::<Vec<String>>()
+            .join(" && ");
         println!("Run '{}' to do it later", command);
     }
 }
